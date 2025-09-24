@@ -4,10 +4,6 @@ from dotenv import load_dotenv
 import gspread
 import discord
 from discord.ext import tasks, commands
-import asyncio
-from fastapi import FastAPI
-import threading
-import uvicorn
 
 # ----------------------------
 # Charger les variables d'environnement
@@ -18,7 +14,6 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
-HTTP_PORT = int(os.getenv("HTTP_PORT", "8000"))  # Port pour UptimeRobot
 
 # ----------------------------
 # Récupération des credentials Google depuis la variable d'environnement
@@ -27,7 +22,12 @@ cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
     raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
 
-creds_dict = json.loads(cred_json)
+try:
+    creds_dict = json.loads(cred_json)
+except json.JSONDecodeError as e:
+    raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
+
+# Corriger les \n dans la clé privée
 if "private_key" in creds_dict:
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -69,6 +69,14 @@ def get_sheet():
     return ws
 
 # ----------------------------
+# Événement on_ready
+# ----------------------------
+@bot.event
+async def on_ready():
+    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+    poll_sheet.start()
+
+# ----------------------------
 # Boucle de vérification
 # ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
@@ -76,16 +84,8 @@ async def poll_sheet():
     try:
         ws = get_sheet()
         rows = ws.get_all_values()
+
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
-
-        # ===== DEBUG =====
-        if meaningful_rows:
-            print("DEBUG:", len(rows), "lignes totales,", len(meaningful_rows), 
-                  "lignes significatives,", "last_row_name:", meaningful_rows[-1][22])
-        else:
-            print("DEBUG: aucune ligne significative trouvée")
-        # =================
-
         if not meaningful_rows:
             return
 
@@ -109,7 +109,8 @@ async def poll_sheet():
             if vip.strip() == "" or vip.upper() == "NULL":
                 vip = "Non VIP"
 
-            price = last_row[23] if len(last_row) > 23 else "N/A"
+            price = last_row[23] if len(last_row) > 32 else "N/A"
+            color = last_row[33] if len(last_row) > 33 else "N/A"
             engine = "⭐" * int(last_row[26]) if len(last_row) > 26 and last_row[26].isdigit() else "❌"
             brake = "⭐" * int(last_row[27]) if len(last_row) > 27 and last_row[27].isdigit() else "❌"
             transmission = "⭐" * int(last_row[28]) if len(last_row) > 28 and last_row[28].isdigit() else "❌"
@@ -121,6 +122,7 @@ async def poll_sheet():
                 f"🚗 **Nouvelle voiture disponible !**\n\n"
                 f"📛 **Nom** : {car_name}\n"
                 f"💰 **Prix** : {price}\n"
+                f"🎨 **Couleur** : {color}\n"
                 f"⭐ **VIP** : {vip}\n\n"
                 f"🏁 **Niveaux** :\n"
                 f"- Moteur : {engine}\n"
@@ -131,6 +133,7 @@ async def poll_sheet():
             )
 
             await ch.send(msg)
+
             state["last_value"] = car_name
             save_state(state)
 
@@ -138,22 +141,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# Serveur HTTP minimal pour UptimeRobot
-# ----------------------------
-app = FastAPI()
-
-@app.get("/")
-async def root():
-    return {"status": "ok"}
-
-def run_http():
-    uvicorn.run(app, host="0.0.0.0", port=HTTP_PORT)
-
-# ----------------------------
-# Lancement
+# Lancement du bot
 # ----------------------------
 if __name__ == "__main__":
-    # Lancer le serveur HTTP en thread séparé
-    threading.Thread(target=run_http, daemon=True).start()
-    # Lancer le bot Discord
     bot.run(TOKEN)
