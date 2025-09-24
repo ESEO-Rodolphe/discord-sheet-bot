@@ -7,11 +7,12 @@ import discord
 from discord.ext import tasks, commands
 
 # Récupère le JSON depuis la variable d'environnement
-cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON").replace("\\n", "\n")
+cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
     raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
 
-creds_dict = json.loads(cred_json)
+creds_dict = json.loads(cred_json)  # <-- JSON brut, sans replace
+creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")  # <-- seulement sur la clé privée
 
 # ----------------------------
 # Charger les autres variables
@@ -50,7 +51,7 @@ state = load_state()
 # ----------------------------
 def get_sheet():
     gc = gspread.service_account_from_dict(creds_dict)
-    sh = gc.open_by_key(os.getenv("SPREADSHEET_ID"))
+    sh = gc.open_by_key(SPREADSHEET_ID)
     ws = sh.worksheet("BDD")
     return ws
 
