@@ -77,6 +77,15 @@ async def poll_sheet():
         ws = get_sheet()
         rows = ws.get_all_values()
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
+
+        # ===== DEBUG =====
+        if meaningful_rows:
+            print("DEBUG:", len(rows), "lignes totales,", len(meaningful_rows), 
+                  "lignes significatives,", "last_row_name:", meaningful_rows[-1][22])
+        else:
+            print("DEBUG: aucune ligne significative trouvée")
+        # =================
+
         if not meaningful_rows:
             return
 
@@ -124,8 +133,6 @@ async def poll_sheet():
             await ch.send(msg)
             state["last_value"] = car_name
             save_state(state)
-
-    print("DEBUG:", len(rows), "lignes totales,", len(meaningful_rows), "lignes significatives,", "last_row_name:", meaningful_rows[-1][22])
 
     except Exception as e:
         print("Erreur lors du polling :", e)
