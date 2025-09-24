@@ -111,10 +111,19 @@ async def poll_sheet():
 
             price = last_row[23] if len(last_row) > 32 else "N/A"
             color = last_row[33] if len(last_row) > 33 else "N/A"
-            engine = "⭐" * int(last_row[26]) if len(last_row) > 26 and last_row[26].isdigit() else "❌"
-            brake = "⭐" * int(last_row[27]) if len(last_row) > 27 and last_row[27].isdigit() else "❌"
-            transmission = "⭐" * int(last_row[28]) if len(last_row) > 28 and last_row[28].isdigit() else "❌"
-            suspension = "⭐" * int(last_row[29]) if len(last_row) > 29 and last_row[29].isdigit() else "❌"
+            
+            def stars(value): 
+                try: 
+                    val = int(value) 
+                    return "⭐" * val if val > 0 else "❌" 
+                except: 
+                    return "N/A" 
+                    
+            engine = stars(last_row[26] if len(last_row) > 26 else 0) 
+            brake = stars(last_row[27] if len(last_row) > 27 else 0) 
+            transmission = stars(last_row[28] if len(last_row) > 28 else 0) 
+            suspension = stars(last_row[29] if len(last_row) > 29 else 0)
+
             turbo_val = last_row[30] if len(last_row) > 30 else "FALSE"
             turbo = "✅" if turbo_val.upper() == "TRUE" else "❌"
 
