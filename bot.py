@@ -6,10 +6,10 @@ import gspread
 import discord
 from discord.ext import tasks, commands
 
-# GOOGLE_CREDENTIALS
-cred_json = os.getenv("GOOGLE_CREDENTIALS")
+# Récupère le JSON depuis la variable d'environnement
+cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
-    raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS est vide !")
+    raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
 
 creds_dict = json.loads(cred_json)
 
