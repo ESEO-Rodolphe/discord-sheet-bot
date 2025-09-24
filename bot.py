@@ -6,16 +6,12 @@ import gspread
 import discord
 from discord.ext import tasks, commands
 
-# ----------------------------
-# Gestion sécurisée des secrets
-# ----------------------------
-CRED_FILE = "credentials.json"
+# GOOGLE_CREDENTIALS
+cred_json = os.getenv("GOOGLE_CREDENTIALS")
+if not cred_json:
+    raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS est vide !")
 
-# Si variable d'environnement présente, on écrit le fichier credentials.json
-cred_env = os.getenv("GOOGLE_CREDENTIALS_JSON")
-if cred_env:
-    with open(CRED_FILE, "w", encoding="utf-8") as f:
-        f.write(cred_env)
+creds_dict = json.loads(cred_json)
 
 # ----------------------------
 # Charger les autres variables
@@ -53,8 +49,8 @@ state = load_state()
 # Connexion Google Sheets
 # ----------------------------
 def get_sheet():
-    gc = gspread.service_account(filename=CRED_FILE)
-    sh = gc.open_by_key(SPREADSHEET_ID)
+    gc = gspread.service_account_from_dict(creds_dict)
+    sh = gc.open_by_key(os.getenv("SPREADSHEET_ID"))
     ws = sh.worksheet("BDD")
     return ws
 
