@@ -125,6 +125,8 @@ async def poll_sheet():
             state["last_value"] = car_name
             save_state(state)
 
+    print("DEBUG:", len(rows), "lignes totales,", len(meaningful_rows), "lignes significatives,", "last_row_name:", meaningful_rows[-1][22])
+
     except Exception as e:
         print("Erreur lors du polling :", e)
 
