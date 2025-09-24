@@ -28,6 +28,10 @@ try:
 except json.JSONDecodeError as e:
     raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
 
+# Corriger les \n dans la clé privée
+if "private_key" in creds_dict:
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
 # ----------------------------
 # Setup Discord
 # ----------------------------
