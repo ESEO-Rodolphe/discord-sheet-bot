@@ -10,8 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le reste du projet
 COPY bot.py .
-COPY credentials.json .
-COPY .env .
 
 # Commande pour démarrer le bot
 CMD ["python", "-u", "bot.py"]
