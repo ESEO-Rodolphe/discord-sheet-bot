@@ -109,7 +109,7 @@ async def poll_sheet():
             if vip.strip() == "" or vip.upper() == "NULL":
                 vip = "Non VIP"
 
-            price = last_row[23] if len(last_row) > 32 else "N/A"
+            price = last_row[32] if len(last_row) > 32 else "N/A"
             color = last_row[33] if len(last_row) > 33 else "N/A"
             
             def stars(value): 
