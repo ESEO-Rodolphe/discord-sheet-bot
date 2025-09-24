@@ -7,7 +7,7 @@ import discord
 from discord.ext import tasks, commands
 
 # Récupère le JSON depuis la variable d'environnement
-cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON").replace("\\n", "\n")
 if not cred_json:
     raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
 
