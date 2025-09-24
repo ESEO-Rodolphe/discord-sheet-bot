@@ -1,4 +1,5 @@
 discord.py
 gspread
 python-dotenv
-requests
+fastapi
+uvicorn
