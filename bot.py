@@ -6,16 +6,8 @@ import gspread
 import discord
 from discord.ext import tasks, commands
 
-# Récupère le JSON depuis la variable d'environnement
-cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-if not cred_json:
-    raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
-
-creds_dict = json.loads(cred_json)  # <-- JSON brut, sans replace
-creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")  # <-- seulement sur la clé privée
-
 # ----------------------------
-# Charger les autres variables
+# Charger les variables d'environnement
 # ----------------------------
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -23,6 +15,18 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
+
+# ----------------------------
+# Récupération des credentials Google depuis la variable d'environnement
+# ----------------------------
+cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+if not cred_json:
+    raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
+
+try:
+    creds_dict = json.loads(cred_json)
+except json.JSONDecodeError as e:
+    raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
 
 # ----------------------------
 # Setup Discord
