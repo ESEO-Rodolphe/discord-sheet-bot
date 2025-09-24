@@ -1,6 +1,5 @@
 import os
 import json
-import asyncio
 from dotenv import load_dotenv
 import gspread
 import discord
@@ -36,12 +35,15 @@ if "private_key" in creds_dict:
 # Setup Discord
 # ----------------------------
 intents = discord.Intents.default()
+intents.messages = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ----------------------------
 # Gestion de l'état
 # ----------------------------
 def load_state():
+    if not os.path.exists(STATE_FILE):
+        return {"last_value": None}
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -49,8 +51,11 @@ def load_state():
         return {"last_value": None}
 
 def save_state(state):
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f)
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print("Erreur lors de la sauvegarde de l'état :", e)
 
 state = load_state()
 
@@ -80,14 +85,13 @@ async def poll_sheet():
         ws = get_sheet()
         rows = ws.get_all_values()
 
-        # Filtrer les lignes avec colonne W non vide
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
             return
 
         last_row = meaningful_rows[-1]
         car_name = last_row[22]
-        prev_value = state.get("last_value", None)
+        prev_value = state.get("last_value")
 
         if prev_value is None:
             state["last_value"] = car_name
@@ -97,6 +101,9 @@ async def poll_sheet():
 
         if car_name != prev_value:
             ch = bot.get_channel(CHANNEL_ID)
+            if ch is None:
+                print(f"⚠️ Channel Discord avec ID {CHANNEL_ID} non trouvé.")
+                return
 
             vip = last_row[21] if len(last_row) > 21 else "Non VIP"
             if vip.strip() == "" or vip.upper() == "NULL":
@@ -125,12 +132,11 @@ async def poll_sheet():
 
             await ch.send(msg)
 
-            # Mise à jour de l'état
             state["last_value"] = car_name
             save_state(state)
 
     except Exception as e:
-        print("Erreur:", e)
+        print("Erreur lors du polling :", e)
 
 # ----------------------------
 # Lancement du bot
