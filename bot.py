@@ -1,28 +1,12 @@
 import os
 import json
+import threading
 from dotenv import load_dotenv
 import gspread
 import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
-import threading
 import uvicorn
-
-app = FastAPI()
-
-@app.get("/")
-def read_root():
-    return {"status get": "Bot actif"}
-
-@app.head("/")
-def head_root():
-    return {"status head": "Bot actif"}
-
-def run_web():
-    uvicorn.run(app, host="0.0.0.0", port=8080)
-
-# Lancer le serveur web en parallèle
-threading.Thread(target=run_web, daemon=True).start()
 
 # ----------------------------
 # Charger les variables d'environnement
@@ -130,17 +114,17 @@ async def poll_sheet():
 
             price = last_row[32] if len(last_row) > 32 else "N/A"
             color = last_row[33] if len(last_row) > 33 else "N/A"
-            
-            def stars(value): 
-                try: 
-                    val = int(value) 
-                    return "⭐" * val if val > 0 else "❌" 
-                except: 
-                    return "N/A" 
-                    
-            engine = stars(last_row[26] if len(last_row) > 26 else 0) 
-            brake = stars(last_row[27] if len(last_row) > 27 else 0) 
-            transmission = stars(last_row[28] if len(last_row) > 28 else 0) 
+
+            def stars(value):
+                try:
+                    val = int(value)
+                    return "⭐" * val if val > 0 else "❌"
+                except:
+                    return "N/A"
+
+            engine = stars(last_row[26] if len(last_row) > 26 else 0)
+            brake = stars(last_row[27] if len(last_row) > 27 else 0)
+            transmission = stars(last_row[28] if len(last_row) > 28 else 0)
             suspension = stars(last_row[29] if len(last_row) > 29 else 0)
 
             turbo_val = last_row[30] if len(last_row) > 30 else "FALSE"
@@ -167,6 +151,25 @@ async def poll_sheet():
 
     except Exception as e:
         print("Erreur lors du polling :", e)
+
+# ----------------------------
+# Serveur FastAPI pour keep-alive (Render/UptimeRobot)
+# ----------------------------
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "Bot actif"}
+
+@app.head("/")
+def head_root():
+    return {}
+
+def run_web():
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+
+# Lancer FastAPI en parallèle du bot Discord
+threading.Thread(target=run_web, daemon=True).start()
 
 # ----------------------------
 # Lancement du bot
