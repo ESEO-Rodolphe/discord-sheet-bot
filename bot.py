@@ -12,7 +12,11 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"status": "Bot actif"}
+    return {"status get": "Bot actif"}
+
+@app.head("/")
+def head_root():
+    return {"status head": "Bot actif"}
 
 def run_web():
     uvicorn.run(app, host="0.0.0.0", port=8080)
