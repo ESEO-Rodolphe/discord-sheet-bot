@@ -3,4 +3,3 @@ gspread
 python-dotenv
 fastapi
 uvicorn
-threading
