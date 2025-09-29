@@ -4,6 +4,21 @@ from dotenv import load_dotenv
 import gspread
 import discord
 from discord.ext import tasks, commands
+from fastapi import FastAPI
+import threading
+import uvicorn
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "Bot actif"}
+
+def run_web():
+    uvicorn.run(app, host="0.0.0.0", port=8080)
+
+# Lancer le serveur web en parallèle
+threading.Thread(target=run_web, daemon=True).start()
 
 # ----------------------------
 # Charger les variables d'environnement
