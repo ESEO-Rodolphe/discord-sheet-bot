@@ -6,6 +6,7 @@ from discord.ext import tasks, commands
 from fastapi import FastAPI
 import asyncio
 import gspread
+import uvicorn
 
 # ----------------------------
 # Charger les variables d'environnement
@@ -40,7 +41,6 @@ intents.messages = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Flag pour ne pas relancer la boucle plusieurs fois
 has_started = False
 
 # ----------------------------
@@ -74,7 +74,7 @@ def get_sheet():
     return ws
 
 # ----------------------------
-# Événement on_ready
+# Discord bot ready
 # ----------------------------
 @bot.event
 async def on_ready():
@@ -130,7 +130,6 @@ async def poll_sheet():
             brake = stars(last_row[27] if len(last_row) > 27 else 0)
             transmission = stars(last_row[28] if len(last_row) > 28 else 0)
             suspension = stars(last_row[29] if len(last_row) > 29 else 0)
-
             turbo_val = last_row[30] if len(last_row) > 30 else "FALSE"
             turbo = "✅" if turbo_val.upper() == "TRUE" else "❌"
 
@@ -161,7 +160,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# Serveur FastAPI (Render gère le serveur)
+# FastAPI (Render détecte le port)
 # ----------------------------
 app = FastAPI()
 
@@ -169,16 +168,15 @@ app = FastAPI()
 def read_root():
     return {"status": "Bot actif"}
 
-@app.head("/")
-def head_root():
-    return {}
-
 # ----------------------------
-# Lancement du bot
+# Lancement du bot + FastAPI
 # ----------------------------
-async def main():
+async def start_bot():
     await bot.load_extension("recherche")
     await bot.start(TOKEN)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 8080))
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_bot())
+    uvicorn.run(app, host="0.0.0.0", port=port)
