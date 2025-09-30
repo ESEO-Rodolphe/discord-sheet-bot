@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le reste du projet
-COPY bot.py .
+COPY . .
 
 # Commande pour démarrer le bot
 CMD ["python", "-u", "bot.py"]
