@@ -1,11 +1,12 @@
 import os
 import json
+import threading
+import asyncio
 from dotenv import load_dotenv
+import gspread
 import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
-import asyncio
-import gspread
 import uvicorn
 
 # ----------------------------
@@ -19,7 +20,7 @@ POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
 
 # ----------------------------
-# Récupération des credentials Google
+# Récupération des credentials Google depuis la variable d'environnement
 # ----------------------------
 cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
@@ -30,6 +31,7 @@ try:
 except json.JSONDecodeError as e:
     raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
 
+# Corriger les \n dans la clé privée
 if "private_key" in creds_dict:
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -38,10 +40,7 @@ if "private_key" in creds_dict:
 # ----------------------------
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-has_started = False
 
 # ----------------------------
 # Gestion de l'état
@@ -65,24 +64,23 @@ def save_state(state):
 state = load_state()
 
 # ----------------------------
-# Connexion Google Sheets
+# Connexion Google Sheets (bloquant)
 # ----------------------------
-def get_sheet():
+def get_sheet_data():
+    """Fonction bloquante appelée dans un thread via run_in_executor"""
     gc = gspread.service_account_from_dict(creds_dict)
     sh = gc.open_by_key(SPREADSHEET_ID)
     ws = sh.worksheet("BDD")
-    return ws
+    return ws.get_all_values()
 
 # ----------------------------
-# Discord bot ready
+# Événement on_ready
 # ----------------------------
 @bot.event
 async def on_ready():
-    global has_started
-    if not has_started:
-        print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+    if not poll_sheet.is_running():  # évite RuntimeError
         poll_sheet.start()
-        has_started = True
 
 # ----------------------------
 # Boucle de vérification
@@ -90,8 +88,9 @@ async def on_ready():
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
     try:
-        ws = get_sheet()
-        rows = ws.get_all_values()
+        loop = asyncio.get_event_loop()
+        rows = await loop.run_in_executor(None, get_sheet_data)
+
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
             return
@@ -130,6 +129,7 @@ async def poll_sheet():
             brake = stars(last_row[27] if len(last_row) > 27 else 0)
             transmission = stars(last_row[28] if len(last_row) > 28 else 0)
             suspension = stars(last_row[29] if len(last_row) > 29 else 0)
+
             turbo_val = last_row[30] if len(last_row) > 30 else "FALSE"
             turbo = "✅" if turbo_val.upper() == "TRUE" else "❌"
 
@@ -149,10 +149,6 @@ async def poll_sheet():
 
             await ch.send(msg)
 
-            cog = bot.get_cog("Recherche")
-            if cog:
-                await cog.notify_users(car_name)
-
             state["last_value"] = car_name
             save_state(state)
 
@@ -160,7 +156,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# FastAPI (Render détecte le port)
+# Serveur FastAPI pour keep-alive (Render/UptimeRobot)
 # ----------------------------
 app = FastAPI()
 
@@ -168,15 +164,18 @@ app = FastAPI()
 def read_root():
     return {"status": "Bot actif"}
 
-# ----------------------------
-# Lancement du bot + FastAPI
-# ----------------------------
-async def start_bot():
-    await bot.load_extension("recherche")
-    await bot.start(TOKEN)
+@app.head("/")
+def head_root():
+    return {}
 
+def run_web():
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+
+# Lancer FastAPI en parallèle du bot Discord
+threading.Thread(target=run_web, daemon=True).start()
+
+# ----------------------------
+# Lancement du bot
+# ----------------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_bot())
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    bot.run(TOKEN)
