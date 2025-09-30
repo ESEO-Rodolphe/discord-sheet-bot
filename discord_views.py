@@ -30,15 +30,18 @@ class CarSelect(Select):
         selected = self.values
         current = get_user_subscriptions(user_id)
 
+        # Ajouter nouvelles sélections
         for car in selected:
             if car not in current:
                 add_subscription(user_id, car)
 
+        # Supprimer décochées
         for car in current:
             if car not in selected:
                 remove_subscription(user_id, car)
 
-        await interaction.response.edit_message(view=self.view_ref, content="✅ Vos abonnements ont été mis à jour.")
+        # await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
+        await self.view_ref.refresh_menu(interaction)
 
 # ---------- Vue principale avec bouton recherche et pagination ----------
 class CarSelectionView(View):
