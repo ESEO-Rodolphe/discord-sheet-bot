@@ -87,12 +87,10 @@ class Recherche(commands.Cog):
         try:
             self.user_prefs[user_id] = selected
 
-            # Lire uniquement la colonne USER_ID_COL
-            user_col = self.ws.col_values(USER_ID_COL)
-
+            all_values = self.ws.get_all_values()
             row_to_update = None
-            for i, uid in enumerate(user_col, start=1):
-                if uid.strip() == str(user_id):
+            for i, row in enumerate(all_values, start=1):
+                if len(row) >= USER_ID_COL and row[USER_ID_COL - 1].strip() == str(user_id):
                     row_to_update = i
                     break
 
@@ -100,20 +98,10 @@ class Recherche(commands.Cog):
                 # Mise à jour de la colonne PREFS_COL
                 self.ws.update_cell(row_to_update, PREFS_COL, json.dumps(selected))
             else:
-                # Chercher la première ligne vide dans la colonne AI
-                for i, uid in enumerate(user_col, start=1):
-                    if not uid.strip():
-                        row_to_append = i
-                        break
-                else:
-                    row_to_append = len(user_col) + 1  # Si tout est rempli, ajouter après la dernière
-
+                # Ajouter nouvelle ligne juste après la dernière ligne utilisée
+                last_row = len(all_values)
                 new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
-                # Mettre à jour la ligne trouvée ou append si au bout
-                if row_to_append <= len(user_col):
-                    self.ws.update(f"A{row_to_append}:AJ{row_to_append}", [new_row])
-                else:
-                    self.ws.append_row(new_row, value_input_option="RAW")
+                self.ws.append_row(new_row, value_input_option="RAW")
 
         except Exception as e:
             print("Erreur save_pref:", e)
@@ -133,7 +121,7 @@ class Recherche(commands.Cog):
                 try:
                     user = await self.bot.fetch_user(int(user_id))
                     await user.send(
-                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !"
+                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible ! test : https://discord.com/channels/1205910299681755257/1368601043587432498"
                     )
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
