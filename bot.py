@@ -1,4 +1,4 @@
-import os 
+import os
 import json
 import threading
 from dotenv import load_dotenv
@@ -7,10 +7,10 @@ import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
-import recherche  
+import recherche  # notre cog
 
 # ----------------------------
-# Charger les variables d'environnement
+# Variables d'environnement
 # ----------------------------
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -20,31 +20,23 @@ POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
 
 # ----------------------------
-# Récupération des credentials Google depuis la variable d'environnement
+# Credentials Google
 # ----------------------------
 cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
     raise ValueError("La variable d'environnement GOOGLE_CREDENTIALS_JSON est vide !")
-
-try:
-    creds_dict = json.loads(cred_json)
-except json.JSONDecodeError as e:
-    raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
-
-# Corriger les \n dans la clé privée
+creds_dict = json.loads(cred_json)
 if "private_key" in creds_dict:
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
 # ----------------------------
-# Setup Discord
+# Discord Intents
 # ----------------------------
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+intents.message_content = True  # Intent privilégié, à activer sur le portail Discord
 
-# Charger le cog recherche
-recherche.setup(bot)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ----------------------------
 # Gestion de l'état
@@ -77,22 +69,13 @@ def get_sheet():
     return ws
 
 # ----------------------------
-# Événement on_ready
-# ----------------------------
-@bot.event
-async def on_ready():
-    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
-    poll_sheet.start()
-
-# ----------------------------
-# Boucle de vérification
+# Boucle de polling
 # ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
     try:
         ws = get_sheet()
         rows = ws.get_all_values()
-
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
             return
@@ -109,13 +92,12 @@ async def poll_sheet():
 
         if car_name != prev_value:
             ch = bot.get_channel(CHANNEL_ID)
-            if ch is None:
+            if not ch:
                 print(f"⚠️ Channel Discord avec ID {CHANNEL_ID} non trouvé.")
                 return
 
             vip = last_row[21] if len(last_row) > 21 else "Non VIP"
-            if vip.strip() == "" or vip.upper() == "NULL":
-                vip = "Non VIP"
+            vip = "Non VIP" if vip.strip() in ["", "NULL"] else vip
 
             price = last_row[32] if len(last_row) > 32 else "N/A"
             color = last_row[33] if len(last_row) > 33 else "N/A"
@@ -131,9 +113,7 @@ async def poll_sheet():
             brake = stars(last_row[27] if len(last_row) > 27 else 0)
             transmission = stars(last_row[28] if len(last_row) > 28 else 0)
             suspension = stars(last_row[29] if len(last_row) > 29 else 0)
-
-            turbo_val = last_row[30] if len(last_row) > 30 else "FALSE"
-            turbo = "✅" if turbo_val.upper() == "TRUE" else "❌"
+            turbo = "✅" if (last_row[30].upper() if len(last_row) > 30 else "FALSE") == "TRUE" else "❌"
 
             msg = (
                 f"🚗 **Nouvelle voiture disponible !**\n\n"
@@ -151,7 +131,7 @@ async def poll_sheet():
 
             await ch.send(msg)
 
-            # ➝ notification aux abonnés (via recherche.py)
+            # Notification abonnés via cog
             cog = bot.get_cog("Recherche")
             if cog:
                 await cog.notify_users(car_name, msg)
@@ -163,7 +143,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# Serveur FastAPI pour keep-alive (Render/UptimeRobot)
+# FastAPI pour keep-alive
 # ----------------------------
 app = FastAPI()
 
@@ -178,11 +158,18 @@ def head_root():
 def run_web():
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
 
-# Lancer FastAPI en parallèle du bot Discord
 threading.Thread(target=run_web, daemon=True).start()
 
 # ----------------------------
 # Lancement du bot
 # ----------------------------
+async def main():
+    # Charger le cog Recherche correctement
+    await recherche.setup(bot)
+    print("✅ Cog Recherche chargé")
+    poll_sheet.start()
+    await bot.start(TOKEN)
+
 if __name__ == "__main__":
-    bot.run(TOKEN)
+    import asyncio
+    asyncio.run(main())
