@@ -40,7 +40,7 @@ class CarSelect(Select):
             if car not in selected:
                 remove_subscription(user_id, car)
 
-        await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
+        await interaction.response.defer("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
         await self.view_ref.refresh_menu(interaction)
 
 # ---------- Vue principale avec bouton recherche et pagination ----------
