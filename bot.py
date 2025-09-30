@@ -79,9 +79,6 @@ def get_sheet():
 async def on_ready():
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
     poll_sheet.start()
-    recherche_cog = bot.get_cog("Recherche")
-    if recherche_cog:
-        bot.add_view(recherche_cog.view)
 
 # ----------------------------
 # Boucle de vérification
