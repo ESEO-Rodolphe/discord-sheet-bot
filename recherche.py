@@ -1,28 +1,66 @@
-import os
-import json
 import discord
 from discord.ext import commands
 from discord.ui import View, Select
+import gspread
+import json
+from bot import creds_dict, SPREADSHEET_ID
 
-PREFS_FILE = "user_preferences.json"
+USER_ID_COL = 35  # AI
+PREFS_COL   = 36  # AJ
+CAR_COL     = 3   # C
+CAR_START_ROW = 2
+
+# -----------------------
+# Google Sheets
+# -----------------------
+def get_sheet():
+    gc = gspread.service_account_from_dict(creds_dict)
+    sh = gc.open_by_key(SPREADSHEET_ID)
+    return sh.worksheet("BDD")
 
 def load_prefs():
-    if not os.path.exists(PREFS_FILE):
-        return {}
+    ws = get_sheet()
     try:
-        with open(PREFS_FILE, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-            if not content:
-                return {}
-            return json.loads(content)
-    except (json.JSONDecodeError, OSError):
+        user_ids = ws.col_values(USER_ID_COL)
+        prefs_col = ws.col_values(PREFS_COL)
+        prefs = {}
+        for uid, val in zip(user_ids, prefs_col):
+            if uid.strip() and val.strip():
+                try:
+                    prefs[uid] = json.loads(val)
+                except:
+                    prefs[uid] = []
+        return prefs
+    except Exception as e:
+        print("Erreur load_prefs:", e)
         return {}
 
-def save_prefs(prefs):
-    with open(PREFS_FILE, "w", encoding="utf-8") as f:
-        json.dump(prefs, f, indent=2)
+def save_pref(user_id, selected):
+    ws = get_sheet()
+    user_ids = ws.col_values(USER_ID_COL)
+    try:
+        if str(user_id) in user_ids:
+            row = user_ids.index(str(user_id)) + 1
+            ws.update_cell(row, PREFS_COL, json.dumps(selected))
+        else:
+            # Ajouter nouvelle ligne
+            new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
+            ws.append_row(new_row)
+    except Exception as e:
+        print("Erreur save_pref:", e)
 
-user_prefs = load_prefs()
+# -----------------------
+# Générer options dynamiquement
+# -----------------------
+def get_available_cars():
+    ws = get_sheet()
+    try:
+        cars = ws.col_values(CAR_COL)[CAR_START_ROW - 1:]
+        cars = list(filter(None, cars))
+        return sorted(list(set(cars)))  # unique + tri alphabétique
+    except Exception as e:
+        print("Erreur get_available_cars:", e)
+        return ["Voiture 1", "Voiture 2", "Voiture 3"]
 
 # -----------------------
 # View
@@ -30,12 +68,7 @@ user_prefs = load_prefs()
 class RechercheView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        options = [
-            discord.SelectOption(label="Voiture 1"),
-            discord.SelectOption(label="Voiture 2"),
-            discord.SelectOption(label="Voiture 3"),
-        ]
-
+        options = [discord.SelectOption(label=car) for car in get_available_cars()]
         self.select = Select(
             custom_id="select_voitures",
             placeholder="Choisis une ou plusieurs voitures...",
@@ -48,12 +81,8 @@ class RechercheView(View):
 
     async def select_callback(self, interaction: discord.Interaction):
         user_id = str(interaction.user.id)
-        selected = self.select.values  # ✅ méthode officielle
-        user_prefs[user_id] = selected
-
-        # ✅ Sauvegarde immédiate
-        save_prefs(user_prefs)
-
+        selected = self.select.values
+        save_pref(user_id, selected)
         await interaction.response.send_message(
             f"✅ Tes préférences ont été enregistrées : {', '.join(selected)}",
             ephemeral=True
@@ -63,34 +92,27 @@ class RechercheView(View):
 # Cog
 # -----------------------
 class Recherche(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot):
         self.bot = bot
 
     @commands.command(name="recherche")
     async def recherche(self, ctx):
-        # recharge les préférences depuis le JSON à chaque ouverture
-        global user_prefs
-        user_prefs = load_prefs()
-
         await ctx.send(
             "🚗 Tu recherches une voiture en particulier ?",
             view=RechercheView()
         )
 
     async def notify_users(self, car_name):
-        global user_prefs
-        user_prefs = load_prefs()  # ✅ Toujours lire les prefs sauvegardées
-
-        for user_id, prefs in user_prefs.items():
-            if car_name in prefs:
+        prefs = load_prefs()
+        for user_id, selected in prefs.items():
+            if car_name in selected:
                 try:
                     user = await self.bot.fetch_user(int(user_id))
                     await user.send(
-                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !\n\n"
-                        f"⚠️ Elle va bientôt être ajoutée au catalogue ! Si tu la veux, ouvre un ticket dans #nous-contacter"
+                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !"
                     )
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
 
-async def setup(bot: commands.Bot):
+async def setup(bot):
     await bot.add_cog(Recherche(bot))
