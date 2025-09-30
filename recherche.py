@@ -20,20 +20,16 @@ def get_sheet():
 
 def load_prefs():
     ws = get_sheet()
-    try:
-        user_ids = ws.col_values(USER_ID_COL)
-        prefs_col = ws.col_values(PREFS_COL)
-        prefs = {}
-        for uid, val in zip(user_ids, prefs_col):
-            if uid.strip() and val.strip():
-                try:
-                    prefs[uid] = json.loads(val)
-                except:
-                    prefs[uid] = []
-        return prefs
-    except Exception as e:
-        print("Erreur load_prefs:", e)
-        return {}
+    prefs = {}
+    user_ids = ws.col_values(USER_ID_COL)
+    prefs_col = ws.col_values(PREFS_COL)
+    for uid, val in zip(user_ids, prefs_col):
+        if uid.strip() and val.strip():
+            try:
+                prefs[uid] = json.loads(val)
+            except:
+                prefs[uid] = []
+    return prefs
 
 def save_pref(user_id, selected):
     ws = get_sheet()
@@ -43,7 +39,6 @@ def save_pref(user_id, selected):
             row = user_ids.index(str(user_id)) + 1
             ws.update_cell(row, PREFS_COL, json.dumps(selected))
         else:
-            # Ajouter nouvelle ligne
             new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
             ws.append_row(new_row)
     except Exception as e:
@@ -57,7 +52,7 @@ def get_available_cars():
     try:
         cars = ws.col_values(CAR_COL)[CAR_START_ROW - 1:]
         cars = list(filter(None, cars))
-        return sorted(list(set(cars)))  # unique + tri alphabétique
+        return sorted(list(set(cars)))
     except Exception as e:
         print("Erreur get_available_cars:", e)
         return ["Voiture 1", "Voiture 2", "Voiture 3"]
@@ -68,13 +63,11 @@ def get_available_cars():
 class RechercheView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        options = [discord.SelectOption(label=car) for car in get_available_cars()]
         self.select = Select(
-            custom_id="select_voitures",
             placeholder="Choisis une ou plusieurs voitures...",
             min_values=1,
-            max_values=len(options),
-            options=options
+            max_values=len(get_available_cars()),
+            options=[discord.SelectOption(label=car) for car in get_available_cars()]
         )
         self.select.callback = self.select_callback
         self.add_item(self.select)
@@ -97,10 +90,9 @@ class Recherche(commands.Cog):
 
     @commands.command(name="recherche")
     async def recherche(self, ctx):
-        await ctx.send(
-            "🚗 Tu recherches une voiture en particulier ?",
-            view=RechercheView()
-        )
+        """Commande !recherche"""
+        view = RechercheView()
+        await ctx.send("🚗 Tu recherches une voiture en particulier ?", view=view)
 
     async def notify_users(self, car_name):
         prefs = load_prefs()
@@ -108,9 +100,7 @@ class Recherche(commands.Cog):
             if car_name in selected:
                 try:
                     user = await self.bot.fetch_user(int(user_id))
-                    await user.send(
-                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !"
-                    )
+                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !")
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
 

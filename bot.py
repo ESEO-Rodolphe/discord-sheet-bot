@@ -177,7 +177,7 @@ def head_root():
 # Lancement du bot
 # ----------------------------
 async def main():
-    await bot.load_extension("recherche")  # adapter le nom si nécessaire
+    await bot.load_extension("recherche")
     await bot.start(TOKEN)
 
 if __name__ == "__main__":
