@@ -18,7 +18,7 @@ class CarSearchModal(Modal):
 class CarSelect(Select):
     def __init__(self, options, view_ref, user_id):
         super().__init__(
-            placeholder="Sélectionnez vos voitures...",
+            placeholder="Sélectionnez vos véhicules...",
             min_values=0,
             max_values=len(options),
             options=options
@@ -30,13 +30,15 @@ class CarSelect(Select):
         selected = self.values
         current = get_user_subscriptions(self.user_id)
 
-        # Ajouter nouvelles sélections sans supprimer les précédentes
         for car in selected:
             if car not in current:
                 add_subscription(self.user_id, car)
+                
+        for car in current:
+            if car not in selected:
+                remove_subscription(self.user_id, car)
 
         await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
-        # Reset du menu principal après sélection
         await self.view_ref.reset_view(interaction)
 
 # ---------- Vue principale ----------
