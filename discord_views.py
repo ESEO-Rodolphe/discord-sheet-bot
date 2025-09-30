@@ -26,21 +26,20 @@ class CarSelect(Select):
         self.view_ref = view_ref
 
     async def callback(self, interaction: discord.Interaction):
-    user_id = interaction.user.id
-    selected = self.values
-    current = get_user_subscriptions(user_id)
+        user_id = interaction.user.id
+        selected = self.values
+        current = get_user_subscriptions(user_id)
 
-    for car in selected:
-        if car not in current:
-            add_subscription(user_id, car)
+        for car in selected:
+            if car not in current:
+                add_subscription(user_id, car)
 
-    for car in current:
-        if car not in selected:
-            remove_subscription(user_id, car)
+        for car in current:
+            if car not in selected:
+                remove_subscription(user_id, car)
 
-    await interaction.message.edit(view=self.view_ref)
-    await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
-
+        await interaction.message.edit(view=self.view_ref)
+        await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
 
 # ---------- Vue principale avec bouton recherche et pagination ----------
 class CarSelectionView(View):
