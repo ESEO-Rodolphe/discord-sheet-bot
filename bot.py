@@ -6,7 +6,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from sheets_api import ws_bdd, get_all_cars, get_user_subscriptions, get_user_subscriptions_by_car
-from discord_views import CarSelectionView, CarSearchModal
+from discord_views import CarSelectionView
 
 # ---------------------------- Charger les variables d'environnement ----------------------------
 load_dotenv()
@@ -18,7 +18,7 @@ STATE_FILE = "sheet_state.json"
 # ---------------------------- Intents Discord ----------------------------
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True  # indispensable pour les commandes
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ---------------------------- Gestion de l'état ----------------------------
@@ -60,25 +60,16 @@ threading.Thread(target=run_web, daemon=True).start()
 @bot.command()
 async def recherche(ctx):
     """Poste le panneau interactif"""
-    view = CarSelectionView()
+    view = CarSelectionView(user_id=ctx.author.id)  # injecte user_id
     embed = discord.Embed(
         title="Sélection de voitures",
-        description="Tapez un mot-clé pour rechercher vos voitures.\n"
-                    "Utilisez le menu pour ajouter ou retirer vos abonnements.\n"
-                    "Utilisez ⬅️ et ➡️ pour naviguer entre les pages."
+        description=(
+            "💡 Tapez un mot-clé pour rechercher vos voitures.\n"
+            "Utilisez le menu pour ajouter ou retirer vos abonnements.\n"
+            "Cliquez sur 'Voir mes véhicules' pour gérer vos abonnements."
+        )
     )
     await ctx.send(embed=embed, view=view)
-    await ctx.send("💡 Cliquez sur le champ de recherche pour filtrer vos voitures.")
-
-@bot.command()
-async def mesvoitures(ctx):
-    """Affiche la liste des voitures suivies par l'utilisateur"""
-    user_id = ctx.author.id
-    cars = get_user_subscriptions(user_id)
-    if not cars:
-        await ctx.send("🚗 Vous ne suivez encore aucune voiture.")
-    else:
-        await ctx.send("🚗 Vos abonnements :\n" + "\n".join(cars))
 
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
@@ -108,15 +99,12 @@ async def poll_sheet():
             return
 
         if car_name != prev_value:
-            # Envoyer le message au channel public
             ch = bot.get_channel(CHANNEL_ID)
             if ch is None:
                 print(f"⚠️ Channel Discord avec ID {CHANNEL_ID} non trouvé.")
             else:
                 vip = last_row[21] if len(last_row) > 21 else "Non VIP"
-                if vip.strip() == "" or vip.upper() == "NULL":
-                    vip = "Non VIP"
-
+                vip = vip if vip.strip() and vip.upper() != "NULL" else "Non VIP"
                 price = last_row[32] if len(last_row) > 32 else "N/A"
                 color = last_row[33] if len(last_row) > 33 else "N/A"
 
@@ -149,7 +137,7 @@ async def poll_sheet():
                 )
                 await ch.send(msg)
 
-            # ---------------- Envoi DM aux abonnés ----------------
+            # DM aux abonnés
             subscribers = get_user_subscriptions_by_car(car_name)
             for user_id in subscribers:
                 user = bot.get_user(int(user_id))
@@ -159,7 +147,7 @@ async def poll_sheet():
                     except Exception as e:
                         print(f"Impossible d'envoyer DM à {user_id} : {e}")
 
-            # Mettre à jour l'état
+            # Mise à jour de l'état
             state["last_value"] = car_name
             save_state(state)
 
