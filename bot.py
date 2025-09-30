@@ -7,7 +7,6 @@ import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
-import recherche  
 import asyncio
 
 # ----------------------------
@@ -21,7 +20,7 @@ POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
 
 # ----------------------------
-# Récupération des credentials Google depuis la variable d'environnement
+# Récupération des credentials Google
 # ----------------------------
 cred_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not cred_json:
@@ -32,7 +31,6 @@ try:
 except json.JSONDecodeError as e:
     raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
 
-# Corriger les \n dans la clé privée
 if "private_key" in creds_dict:
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -43,9 +41,6 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# Charger le cog recherche
-asyncio.run(recherche.setup(bot))
 
 # ----------------------------
 # Gestion de l'état
@@ -152,7 +147,6 @@ async def poll_sheet():
 
             await ch.send(msg)
 
-            # ➝ notification aux abonnés (via recherche.py)
             cog = bot.get_cog("Recherche")
             if cog:
                 await cog.notify_users(car_name, msg)
@@ -164,7 +158,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# Serveur FastAPI pour keep-alive (Render/UptimeRobot)
+# Serveur FastAPI
 # ----------------------------
 app = FastAPI()
 
@@ -179,16 +173,14 @@ def head_root():
 def run_web():
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
 
-# Lancer FastAPI en parallèle du bot Discord
 threading.Thread(target=run_web, daemon=True).start()
 
 # ----------------------------
 # Lancement du bot
 # ----------------------------
 async def main():
-    await bot.add_cog(Recherche(bot))
+    await bot.load_extension("recherche")
     await bot.start(TOKEN)
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
