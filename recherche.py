@@ -24,12 +24,12 @@ def save_prefs(prefs):
 
 user_prefs = load_prefs()
 
-class Recherche(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @commands.command(name="recherche")
-    async def recherche(self, ctx):
+# -----------------------
+# View
+# -----------------------
+class RechercheView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
         options = [
             discord.SelectOption(label="Voiture 1"),
             discord.SelectOption(label="Voiture 2"),
@@ -37,29 +37,39 @@ class Recherche(commands.Cog):
         ]
 
         select = Select(
+            custom_id="select_voitures",
             placeholder="Choisis une ou plusieurs voitures...",
             min_values=1,
             max_values=len(options),
             options=options
         )
+        select.callback = self.select_callback
+        self.add_item(select)
 
-        async def select_callback(interaction: discord.Interaction):
-            user_id = str(interaction.user.id)
-            selected = select.values
-            user_prefs[user_id] = selected
-            save_prefs(user_prefs)
-            await interaction.response.send_message(
-                f"✅ Tes préférences ont été enregistrées : {', '.join(selected)}",
-                ephemeral=True
-            )
+    async def select_callback(self, interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        selected = interaction.data["values"]
+        user_prefs[user_id] = selected
+        save_prefs(user_prefs)
+        await interaction.response.send_message(
+            f"✅ Tes préférences ont été enregistrées : {', '.join(selected)}",
+            ephemeral=True
+        )
 
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
+# -----------------------
+# Cog
+# -----------------------
+class Recherche(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
 
-        await ctx.send("🚗 Tu recherches une voiture en particulier ?", view=view)
+    @commands.command(name="recherche")
+    async def recherche(self, ctx):
+        await ctx.send(
+            "🚗 Tu recherches une voiture en particulier ?",
+            view=RechercheView()
+        )
 
-    # ➝ Plus de paramètre msg
     async def notify_users(self, car_name):
         for user_id, prefs in user_prefs.items():
             if car_name in prefs:
@@ -73,6 +83,5 @@ class Recherche(commands.Cog):
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
 
-# Version async setup pour discord.py v2
 async def setup(bot: commands.Bot):
     await bot.add_cog(Recherche(bot))

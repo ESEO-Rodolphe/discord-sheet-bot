@@ -8,6 +8,7 @@ from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
 import asyncio
+from recherche import RechercheView
 
 # ----------------------------
 # Charger les variables d'environnement
@@ -79,7 +80,7 @@ def get_sheet():
 async def on_ready():
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
     poll_sheet.start()
-
+    bot.add_view(RechercheView())
 # ----------------------------
 # Boucle de vérification
 # ----------------------------
