@@ -9,8 +9,14 @@ PREFS_FILE = "user_preferences.json"
 def load_prefs():
     if not os.path.exists(PREFS_FILE):
         return {}
-    with open(PREFS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(PREFS_FILE, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 def save_prefs(prefs):
     with open(PREFS_FILE, "w", encoding="utf-8") as f:
