@@ -84,27 +84,39 @@ class Recherche(commands.Cog):
 
     # Sauvegarder ou mettre à jour les prefs
     async def save_pref(self, user_id, selected):
-        try:
-            self.user_prefs[user_id] = selected
+    try:
+        self.user_prefs[user_id] = selected
 
-            all_values = self.ws.get_all_values()
-            row_to_update = None
-            for i, row in enumerate(all_values, start=1):
-                if len(row) >= USER_ID_COL and row[USER_ID_COL - 1].strip() == str(user_id):
-                    row_to_update = i
+        # Lire uniquement la colonne USER_ID_COL
+        user_col = self.ws.col_values(USER_ID_COL)
+
+        row_to_update = None
+        for i, uid in enumerate(user_col, start=1):
+            if uid.strip() == str(user_id):
+                row_to_update = i
+                break
+
+        if row_to_update:
+            # Mise à jour de la colonne PREFS_COL
+            self.ws.update_cell(row_to_update, PREFS_COL, json.dumps(selected))
+        else:
+            # Chercher la première ligne vide dans la colonne AI
+            for i, uid in enumerate(user_col, start=1):
+                if not uid.strip():
+                    row_to_append = i
                     break
-
-            if row_to_update:
-                # Mise à jour de la colonne PREFS_COL
-                self.ws.update_cell(row_to_update, PREFS_COL, json.dumps(selected))
             else:
-                # Ajouter nouvelle ligne juste après la dernière ligne utilisée
-                last_row = len(all_values)
-                new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
+                row_to_append = len(user_col) + 1  # Si tout est rempli, ajouter après la dernière
+
+            new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
+            # Mettre à jour la ligne trouvée ou append si au bout
+            if row_to_append <= len(user_col):
+                self.ws.update(f"A{row_to_append}:AJ{row_to_append}", [new_row])
+            else:
                 self.ws.append_row(new_row, value_input_option="RAW")
 
-        except Exception as e:
-            print("Erreur save_pref:", e)
+    except Exception as e:
+        print("Erreur save_pref:", e)
 
     # Commande pour ouvrir le select
     @commands.command(name="recherche")
