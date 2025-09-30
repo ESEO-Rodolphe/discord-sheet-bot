@@ -1,6 +1,7 @@
 import os
 import json
 import threading
+import asyncio
 from dotenv import load_dotenv
 import gspread
 import discord
@@ -30,7 +31,6 @@ try:
 except json.JSONDecodeError as e:
     raise ValueError(f"Erreur JSON dans GOOGLE_CREDENTIALS_JSON : {e}")
 
-# Corriger les \n dans la clé privée
 if "private_key" in creds_dict:
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -65,11 +65,11 @@ state = load_state()
 # ----------------------------
 # Connexion Google Sheets
 # ----------------------------
-def get_sheet():
+def get_sheet_data():
     gc = gspread.service_account_from_dict(creds_dict)
     sh = gc.open_by_key(SPREADSHEET_ID)
     ws = sh.worksheet("BDD")
-    return ws
+    return ws.get_all_values()
 
 # ----------------------------
 # Événement on_ready
@@ -77,7 +77,8 @@ def get_sheet():
 @bot.event
 async def on_ready():
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
-    poll_sheet.start()
+    if not poll_sheet.is_running():
+        poll_sheet.start()
 
 # ----------------------------
 # Boucle de vérification
@@ -85,8 +86,8 @@ async def on_ready():
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
     try:
-        ws = get_sheet()
-        rows = ws.get_all_values()
+        loop = asyncio.get_event_loop()
+        rows = await loop.run_in_executor(None, get_sheet_data)
 
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
