@@ -116,7 +116,7 @@ async def poll_sheet():
                 await ch.send(msg)
 
             # ---------------- Envoi DM aux abonnés ----------------
-            subscribers = get_user_subscriptions_by_car(car_name)  # fonction à créer
+            subscribers = get_user_subscriptions_by_car(car_name)
             for user_id in subscribers:
                 user = bot.get_user(int(user_id))
                 if user:
