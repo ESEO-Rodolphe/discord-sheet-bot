@@ -43,7 +43,7 @@ class CarSelect(Select):
         await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
         await self.view_ref.refresh_menu(interaction, self.view_ref.current_keyword)
 
-# ---------- Vue principale avec pagination ----------
+# ---------- Vue principale avec bouton recherche et pagination ----------
 class CarSelectionView(View):
     def __init__(self):
         super().__init__(timeout=None)  # View persistante
@@ -52,20 +52,35 @@ class CarSelectionView(View):
         self.page = 0
         self.pages = []
 
-    async def update_options(self, interaction, keyword):
+        # Bouton pour ouvrir le Modal de recherche
+        search_btn = Button(label="🔍 Rechercher une voiture", style=discord.ButtonStyle.secondary)
+        search_btn.callback = self.open_search_modal
+        self.add_item(search_btn)
+
+    async def open_search_modal(self, interaction: discord.Interaction):
+        modal = CarSearchModal(self)
+        await interaction.response.send_modal(modal)
+
+    async def update_options(self, interaction: discord.Interaction, keyword: str):
         self.current_keyword = keyword
         cars = search_cars(keyword)
         self.pages = [cars[i:i + 25] for i in range(0, len(cars), 25)]
         self.page = 0
-        await self.refresh_menu(interaction, keyword)
+        await self.refresh_menu(interaction)
 
-    async def refresh_menu(self, interaction, keyword):
+    async def refresh_menu(self, interaction: discord.Interaction):
         self.clear_items()
+
+        # Remettre le bouton recherche en haut
+        search_btn = Button(label="🔍 Rechercher une voiture", style=discord.ButtonStyle.secondary)
+        search_btn.callback = self.open_search_modal
+        self.add_item(search_btn)
 
         if not self.pages or len(self.pages) == 0:
             await interaction.response.send_message("Aucune voiture trouvée.", ephemeral=True)
             return
 
+        # Menu déroulant pour la page courante
         options_page = self.pages[self.page]
         user_id = interaction.user.id
         user_subs = get_user_subscriptions(user_id)
@@ -74,10 +89,9 @@ class CarSelectionView(View):
             discord.SelectOption(label=car, default=car in user_subs)
             for car in options_page
         ]
-
         self.add_item(CarSelect(select_options, self))
 
-        # Ajouter les boutons de pagination si plus d'une page
+        # Pagination si nécessaire
         if len(self.pages) > 1:
             prev_btn = Button(label="⬅️ Page précédente", style=discord.ButtonStyle.primary)
             next_btn = Button(label="➡️ Page suivante", style=discord.ButtonStyle.primary)
@@ -88,16 +102,16 @@ class CarSelectionView(View):
 
         await interaction.response.edit_message(view=self)
 
-    async def next_page(self, interaction):
+    async def next_page(self, interaction: discord.Interaction):
         if self.page < len(self.pages) - 1:
             self.page += 1
-            await self.refresh_menu(interaction, self.current_keyword)
+            await self.refresh_menu(interaction)
         else:
             await interaction.response.send_message("➡️ Dernière page.", ephemeral=True)
 
-    async def prev_page(self, interaction):
+    async def prev_page(self, interaction: discord.Interaction):
         if self.page > 0:
             self.page -= 1
-            await self.refresh_menu(interaction, self.current_keyword)
+            await self.refresh_menu(interaction)
         else:
             await interaction.response.send_message("⬅️ Première page.", ephemeral=True)
