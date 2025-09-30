@@ -5,38 +5,69 @@ from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
 
-from sheets_api import get_all_cars, get_user_subscriptions
+from sheets_api import ws_bdd, get_all_cars, get_user_subscriptions, get_user_subscriptions_by_car
 from discord_views import CarSelectionView, CarSearchModal
 
+# ---------------------------- Charger les variables d'environnement ----------------------------
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "20"))
 STATE_FILE = "sheet_state.json"
 
+# ---------------------------- Intents Discord ----------------------------
 intents = discord.Intents.default()
 intents.messages = True
+intents.message_content = True  # indispensable pour les commandes
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ---------------- FastAPI Keep-alive ----------------
+# ---------------------------- Gestion de l'état ----------------------------
+def load_state():
+    if not os.path.exists(STATE_FILE):
+        return {"last_value": None}
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"last_value": None}
+
+def save_state(state):
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print("Erreur lors de la sauvegarde de l'état :", e)
+
+state = load_state()
+
+# ---------------------------- FastAPI Keep-alive ----------------------------
 app = FastAPI()
+
 @app.get("/")
 def read_root():
     return {"status": "Bot actif"}
+
 @app.head("/")
 def head_root():
     return {}
+
 def run_web():
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+
 threading.Thread(target=run_web, daemon=True).start()
 
-# ---------------- Commandes ----------------
+# ---------------------------- Commandes Discord ----------------------------
 @bot.command()
 async def recherche(ctx):
     """Poste le panneau interactif"""
     view = CarSelectionView()
-    embed = discord.Embed(title="Sélection de voitures", description="Tapez un mot-clé pour rechercher vos voitures.\nUtilisez le menu pour ajouter ou retirer vos abonnements.\nUtilisez ⬅️ et ➡️ pour naviguer entre les pages.")
-    msg = await ctx.send(embed=embed, view=view)
+    embed = discord.Embed(
+        title="Sélection de voitures",
+        description="Tapez un mot-clé pour rechercher vos voitures.\n"
+                    "Utilisez le menu pour ajouter ou retirer vos abonnements.\n"
+                    "Utilisez ⬅️ et ➡️ pour naviguer entre les pages."
+    )
+    await ctx.send(embed=embed, view=view)
     await ctx.send("💡 Cliquez sur le champ de recherche pour filtrer vos voitures.")
 
 @bot.command()
@@ -49,9 +80,12 @@ async def mesvoitures(ctx):
     else:
         await ctx.send("🚗 Vos abonnements :\n" + "\n".join(cars))
 
-# ----------------------------
-# Boucle de vérification
-# ----------------------------
+# ---------------------------- Connexion Google Sheets ----------------------------
+def get_sheet_data():
+    """Récupère toutes les lignes de la feuille BDD"""
+    return ws_bdd.get_all_values()
+
+# ---------------------------- Boucle de vérification ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
     try:
@@ -74,7 +108,7 @@ async def poll_sheet():
             return
 
         if car_name != prev_value:
-            # Envoyer le message au channel public (inchangé)
+            # Envoyer le message au channel public
             ch = bot.get_channel(CHANNEL_ID)
             if ch is None:
                 print(f"⚠️ Channel Discord avec ID {CHANNEL_ID} non trouvé.")
@@ -132,5 +166,13 @@ async def poll_sheet():
     except Exception as e:
         print("Erreur lors du polling :", e)
 
+# ---------------------------- on_ready ----------------------------
+@bot.event
+async def on_ready():
+    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+    if not poll_sheet.is_running():
+        poll_sheet.start()
+
+# ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":
     bot.run(TOKEN)
