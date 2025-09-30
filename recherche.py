@@ -121,7 +121,7 @@ class Recherche(commands.Cog):
                 try:
                     user = await self.bot.fetch_user(int(user_id))
                     await user.send(
-                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible ! test : https://discord.com/channels/1205910299681755257/1368601043587432498"
+                        f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !"
                     )
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
