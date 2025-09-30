@@ -13,7 +13,7 @@ Hébergé gratuitement sur Render, avec un keep-alive assuré par UptimeRobot.
 **- Variables d’environnement**
 *À définir dans Render (onglet Environment Variables) ou via un fichier .env en local.*
 
-  - **DISCORD_TOKEN**	*Token du bot Discord**
+  - **DISCORD_TOKEN**	*Token du bot Discord*
   - **CHANNEL_ID**	*ID du salon Discord où envoyer les alertes*
   - **SPREADSHEET_ID**	*ID de la feuille Google Sheets*
   - **POLL_SECONDS**	*(Optionnel) Intervalle en secondes entre deux vérifications*
