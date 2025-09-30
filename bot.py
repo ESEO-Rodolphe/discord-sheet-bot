@@ -134,7 +134,7 @@ async def poll_sheet():
             # Notification abonnés via cog
             cog = bot.get_cog("Recherche")
             if cog:
-                await cog.notify_users(car_name, msg)
+                await cog.notify_users(car_name)
 
             state["last_value"] = car_name
             save_state(state)
