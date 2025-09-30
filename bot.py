@@ -1,13 +1,11 @@
-import os 
+import os
 import json
-import threading
 from dotenv import load_dotenv
-import gspread
 import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
-import uvicorn
 import asyncio
+import gspread
 
 # ----------------------------
 # Charger les variables d'environnement
@@ -41,6 +39,9 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+# Flag pour ne pas relancer la boucle plusieurs fois
+has_started = False
 
 # ----------------------------
 # Gestion de l'état
@@ -77,8 +78,11 @@ def get_sheet():
 # ----------------------------
 @bot.event
 async def on_ready():
-    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
-    poll_sheet.start()
+    global has_started
+    if not has_started:
+        print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+        poll_sheet.start()
+        has_started = True
 
 # ----------------------------
 # Boucle de vérification
@@ -88,7 +92,6 @@ async def poll_sheet():
     try:
         ws = get_sheet()
         rows = ws.get_all_values()
-
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
             return
@@ -158,7 +161,7 @@ async def poll_sheet():
         print("Erreur lors du polling :", e)
 
 # ----------------------------
-# Serveur FastAPI
+# Serveur FastAPI (Render gère le serveur)
 # ----------------------------
 app = FastAPI()
 
@@ -170,16 +173,11 @@ def read_root():
 def head_root():
     return {}
 
-def run_web():
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
-
-threading.Thread(target=run_web, daemon=True).start()
-
 # ----------------------------
 # Lancement du bot
 # ----------------------------
 async def main():
-    await bot.load_extension("recherche")
+    await bot.load_extension("recherche")  # adapter le nom si nécessaire
     await bot.start(TOKEN)
 
 if __name__ == "__main__":

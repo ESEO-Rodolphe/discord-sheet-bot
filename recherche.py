@@ -18,10 +18,44 @@ def get_sheet():
     sh = gc.open_by_key(SPREADSHEET_ID)
     return sh.worksheet("BDD")
 
+def load_prefs():
+    ws = get_sheet()
+    try:
+        user_ids = ws.col_values(USER_ID_COL)
+        prefs_col = ws.col_values(PREFS_COL)
+        prefs = {}
+        for uid, val in zip(user_ids, prefs_col):
+            if uid.strip() and val.strip():
+                try:
+                    prefs[uid] = json.loads(val)
+                except:
+                    prefs[uid] = []
+        return prefs
+    except Exception as e:
+        print("Erreur load_prefs:", e)
+        return {}
+
+def save_pref(user_id, selected):
+    ws = get_sheet()
+    user_ids = ws.col_values(USER_ID_COL)
+    try:
+        if str(user_id) in user_ids:
+            row = user_ids.index(str(user_id)) + 1
+            ws.update_cell(row, PREFS_COL, json.dumps(selected))
+        else:
+            # Ajouter nouvelle ligne
+            new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
+            ws.append_row(new_row)
+    except Exception as e:
+        print("Erreur save_pref:", e)
+
+# -----------------------
+# Générer options dynamiquement
+# -----------------------
 def get_available_cars():
     ws = get_sheet()
     try:
-        cars = ws.col_values(CAR_COL)[CAR_START_ROW - 1:]  # Ignorer l'entête
+        cars = ws.col_values(CAR_COL)[CAR_START_ROW - 1:]
         cars = list(filter(None, cars))
         return sorted(list(set(cars)))  # unique + tri alphabétique
     except Exception as e:
@@ -32,9 +66,8 @@ def get_available_cars():
 # View
 # -----------------------
 class RechercheView(View):
-    def __init__(self, save_callback):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.save_callback = save_callback
         options = [discord.SelectOption(label=car) for car in get_available_cars()]
         self.select = Select(
             custom_id="select_voitures",
@@ -49,7 +82,7 @@ class RechercheView(View):
     async def select_callback(self, interaction: discord.Interaction):
         user_id = str(interaction.user.id)
         selected = self.select.values
-        await self.save_callback(user_id, selected)
+        save_pref(user_id, selected)
         await interaction.response.send_message(
             f"✅ Tes préférences ont été enregistrées : {', '.join(selected)}",
             ephemeral=True
@@ -61,62 +94,17 @@ class RechercheView(View):
 class Recherche(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.ws = get_sheet()
-        self.user_prefs = {}  # prefs en mémoire
-        self.load_prefs_from_sheet()
-        self.view = RechercheView(self.save_pref)
 
-    # Charger toutes les prefs existantes depuis Sheets
-    def load_prefs_from_sheet(self):
-        try:
-            all_values = self.ws.get_all_values()
-            for row in all_values:
-                if len(row) >= USER_ID_COL:
-                    uid = row[USER_ID_COL - 1].strip()
-                    if uid:
-                        prefs_val = row[PREFS_COL - 1].strip() if len(row) >= PREFS_COL else ""
-                        try:
-                            self.user_prefs[uid] = json.loads(prefs_val) if prefs_val else []
-                        except:
-                            self.user_prefs[uid] = []
-        except Exception as e:
-            print("Erreur load_prefs:", e)
-
-    # Sauvegarder ou mettre à jour les prefs
-    async def save_pref(self, user_id, selected):
-        try:
-            self.user_prefs[user_id] = selected
-
-            all_values = self.ws.get_all_values()
-            row_to_update = None
-            for i, row in enumerate(all_values, start=1):
-                if len(row) >= USER_ID_COL and row[USER_ID_COL - 1].strip() == str(user_id):
-                    row_to_update = i
-                    break
-
-            if row_to_update:
-                # Mise à jour de la colonne PREFS_COL
-                self.ws.update_cell(row_to_update, PREFS_COL, json.dumps(selected))
-            else:
-                # Ajouter nouvelle ligne juste après la dernière ligne utilisée
-                last_row = len(all_values)
-                new_row = [""] * (USER_ID_COL - 1) + [str(user_id)] + [json.dumps(selected)]
-                self.ws.append_row(new_row, value_input_option="RAW")
-
-        except Exception as e:
-            print("Erreur save_pref:", e)
-
-    # Commande pour ouvrir le select
     @commands.command(name="recherche")
     async def recherche(self, ctx):
         await ctx.send(
             "🚗 Tu recherches une voiture en particulier ?",
-            view=self.view
+            view=RechercheView()
         )
 
-    # Notification utilisateurs
     async def notify_users(self, car_name):
-        for user_id, selected in self.user_prefs.items():
+        prefs = load_prefs()
+        for user_id, selected in prefs.items():
             if car_name in selected:
                 try:
                     user = await self.bot.fetch_user(int(user_id))
@@ -126,6 +114,5 @@ class Recherche(commands.Cog):
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
 
-# Setup Cog
 async def setup(bot):
     await bot.add_cog(Recherche(bot))
