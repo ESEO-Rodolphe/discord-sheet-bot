@@ -7,7 +7,7 @@ class CarSearchModal(Modal):
     def __init__(self, view):
         super().__init__(title="Rechercher une voiture")
         self.view_ref = view
-        self.keyword_input = TextInput(label="Mot-clé voiture", placeholder="Ex: BMW", required=True)
+        self.keyword_input = TextInput(label="Mot-clé voiture", placeholder="Ex: Jug pour Jugular", required=True)
         self.add_item(self.keyword_input)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -36,7 +36,7 @@ class CarSelect(Select):
                 add_subscription(self.user_id, car)
 
         await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
-        # Reset du menu après sélection
+        # Reset du menu principal après sélection
         await self.view_ref.reset_view(interaction)
 
 # ---------- Vue principale ----------
@@ -67,15 +67,21 @@ class CarSelectionView(View):
             discord.SelectOption(label=car, default=car in user_subs)
             for car in cars
         ]
-        select_menu = CarSelect(select_options, self, self.user_id)
 
-        # Envoyer le menu
-        await interaction.response.send_message("Sélectionnez vos voitures :", view=select_menu, ephemeral=True)
+        # Crée une View pour le Select
+        view = View()
+        view.add_item(CarSelect(select_options, self, self.user_id))
+
+        await interaction.response.send_message("Sélectionnez vos voitures :", view=view, ephemeral=True)
 
     async def reset_view(self, interaction: discord.Interaction):
         """Réinitialise la vue principale"""
-        # Ici tu peux renvoyer le menu principal ou juste réactiver le bouton
-        await interaction.edit_original_response(view=self)
+        # Édite le message original si possible
+        try:
+            await interaction.edit_original_response(view=self)
+        except discord.errors.InteractionResponded:
+            # Si déjà répondu, envoyer un nouveau message éphémère
+            await interaction.followup.send("💡 Menu réinitialisé.", view=self, ephemeral=True)
 
     async def show_my_cars(self, interaction: discord.Interaction):
         """Affiche les véhicules de l'utilisateur avec possibilité de dé-sélectionner"""
@@ -88,5 +94,7 @@ class CarSelectionView(View):
             discord.SelectOption(label=car, default=True)
             for car in user_cars
         ]
-        select_menu = CarSelect(select_options, self, self.user_id)
-        await interaction.response.send_message("🚗 Vos véhicules (déselectionner pour retirer) :", view=select_menu, ephemeral=True)
+
+        view = View()
+        view.add_item(CarSelect(select_options, self, self.user_id))
+        await interaction.response.send_message("🚗 Vos véhicules (déselectionner pour retirer) :", view=view, ephemeral=True)
