@@ -64,11 +64,7 @@ class Recherche(commands.Cog):
             if car_name in prefs:
                 try:
                     user = await self.bot.fetch_user(int(user_id))
-                    await user.send(
-                    f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !\n"
-                    f"Elle va bientôt être ajoutée au catalogue !\n"
-                    f"⚠️ Si tu la veux, ouvre un ticket pour la réserver dans #nous-contacter"
-                )
+                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible :\n\n{msg}")
                 except Exception as e:
                     print(f"Impossible d’envoyer un DM à {user_id} : {e}")
 
