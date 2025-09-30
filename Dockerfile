@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier le reste du projet
-COPY bot.py .
+# Copier tout le projet dans /app
+COPY . .
 
 # Commande pour démarrer le bot
 CMD ["python", "-u", "bot.py"]
