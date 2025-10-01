@@ -143,7 +143,7 @@ async def poll_sheet():
                 try:
                     user_id = int(user_id_str)
                     user = await bot.fetch_user(user_id)
-                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !")
+                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !\n\nTu veux la réserver ? https://discord.com/channels/1205910299681755257/1368601043587432498\n Ou retrouve nous au Hayes")
                 except Exception as e:
                     print(f"Impossible d'envoyer DM à {user_id_str} : {e}")
 
