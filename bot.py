@@ -60,7 +60,7 @@ threading.Thread(target=run_web, daemon=True).start()
 @bot.command()
 async def recherche(ctx):
     """Poste le panneau interactif"""
-    view = CarSelectionView(user_id=ctx.author.id)  # injecte user_id
+    view = CarSelectionView()
     embed = discord.Embed(
         title="Sélection de voitures",
         description=(
