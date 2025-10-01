@@ -70,6 +70,7 @@ async def recherche(ctx):
         )
     )
     await ctx.send(embed=embed, view=view)
+    await ctx.message.delete()
 
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
