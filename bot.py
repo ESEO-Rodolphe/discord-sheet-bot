@@ -139,13 +139,13 @@ async def poll_sheet():
 
             # DM aux abonnés
             subscribers = get_user_subscriptions_by_car(car_name)
-            for user_id in subscribers:
-                user = bot.get_user(int(user_id))
-                if user:
-                    try:
-                        await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !")
-                    except Exception as e:
-                        print(f"Impossible d'envoyer DM à {user_id} : {e}")
+            for user_id_str in subscribers:
+                try:
+                    user_id = int(user_id_str)
+                    user = await bot.fetch_user(user_id)
+                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !")
+                except Exception as e:
+                    print(f"Impossible d'envoyer DM à {user_id_str} : {e}")
 
             # Mise à jour de l'état
             state["last_value"] = car_name
