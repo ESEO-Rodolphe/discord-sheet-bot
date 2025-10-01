@@ -62,10 +62,10 @@ async def recherche(ctx):
     """Poste le panneau interactif"""
     view = CarSelectionView()
     embed = discord.Embed(
-        title="Sélection de voitures",
+        title="Sélection de véhicules",
         description=(
-            "💡 Tapez un mot-clé pour rechercher vos voitures.\n"
-            "Utilisez le menu pour ajouter ou retirer vos abonnements.\n"
+            "🔍 Tapez un mot-clé pour rechercher des véhicules.\n"
+            "Utilisez le menu ouvrant pour ajouter ou retirer des véhicules.\n"
             "Cliquez sur 'Voir mes véhicules' pour gérer vos abonnements."
         )
     )
@@ -83,7 +83,6 @@ async def poll_sheet():
         loop = asyncio.get_event_loop()
         rows = await loop.run_in_executor(None, get_sheet_data)
 
-        # Filtrer les lignes significatives (colonne 23 = car_name)
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
             return
@@ -113,7 +112,7 @@ async def poll_sheet():
                         val = int(value)
                         return "⭐" * val if val > 0 else "❌"
                     except:
-                        return "N/A"
+                        return "❌"
 
                 engine = stars(last_row[26] if len(last_row) > 26 else 0)
                 brake = stars(last_row[27] if len(last_row) > 27 else 0)
@@ -137,17 +136,15 @@ async def poll_sheet():
                 )
                 await ch.send(msg)
 
-            # DM aux abonnés
             subscribers = get_user_subscriptions_by_car(car_name)
             for user_id_str in subscribers:
                 try:
                     user_id = int(user_id_str)
                     user = await bot.fetch_user(user_id)
-                    await user.send(f"🔔 Bonne nouvelle ! La voiture **{car_name}** est disponible !\n\nTu veux la réserver ? https://discord.com/channels/1205910299681755257/1368601043587432498\n Ou retrouve nous au Hayes")
+                    await user.send(f"🔔 Bonne nouvelle ! Le véhicule **{car_name}** est disponible !\n\nTu veux le réserver ? https://discord.com/channels/1205910299681755257/1368601043587432498\nOu retrouve nous au Hayes")
                 except Exception as e:
                     print(f"Impossible d'envoyer DM à {user_id_str} : {e}")
 
-            # Mise à jour de l'état
             state["last_value"] = car_name
             save_state(state)
 
@@ -161,6 +158,6 @@ async def on_ready():
     if not poll_sheet.is_running():
         poll_sheet.start()
 
-# ---------------------------- Lancement du bot ----------------------------
+# ---------------------------- Lancement du bot --------------------
 if __name__ == "__main__":
     bot.run(TOKEN)

@@ -5,9 +5,9 @@ from sheets_api import search_cars, get_user_subscriptions, add_subscription, re
 # ---------- Modal pour saisir un mot-clé ----------
 class CarSearchModal(Modal):
     def __init__(self, view_ref):
-        super().__init__(title="Rechercher une voiture")
+        super().__init__(title="Rechercher un véhicule")
         self.view_ref = view_ref
-        self.keyword_input = TextInput(label="Mot-clé voiture", placeholder="Ex: Jug pour Jugular", required=True)
+        self.keyword_input = TextInput(label="Mot-clé véhicule", placeholder="Ex: Jug pour Jugular", required=True)
         self.add_item(self.keyword_input)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -29,12 +29,10 @@ class CarSelect(Select):
         selected = self.values
         current = get_user_subscriptions(user_id)
 
-        # Ajouter les voitures sélectionnées
         for car in selected:
             if car not in current:
                 add_subscription(user_id, car)
         
-        # Supprimer les voitures désélectionnées
         menu_cars = [opt.label for opt in self.options]
         for car in menu_cars:
             if car in current and car not in selected:
@@ -53,7 +51,7 @@ class CarSelectionView(View):
         self.last_ephemeral_msg = None
 
         # Bouton recherche
-        search_btn = Button(label="🔍 Rechercher une voiture", style=discord.ButtonStyle.secondary)
+        search_btn = Button(label="🔍 Rechercher un véhicule", style=discord.ButtonStyle.secondary)
         search_btn.callback = self.open_search_modal
         self.add_item(search_btn)
 
@@ -93,14 +91,14 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "Sélectionnez vos voitures :", view=view, delete_after=120)
+        await self.send_ephemeral(interaction, "Sélectionnez vos véhicules :", view=view, delete_after=120)
 
     async def show_my_cars(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         user_cars = get_user_subscriptions(user_id)[:25]
 
         if not user_cars:
-            await interaction.response.send_message("🚗 Vous ne suivez encore aucune voiture.", ephemeral=True, delete_after=5)
+            await interaction.response.send_message("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True, delete_after=5)
             return
 
         select_options = [
@@ -110,4 +108,4 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "🚗 Vos véhicules (déselectionner pour retirer) :", view=view, delete_after=120)
+        await self.send_ephemeral(interaction, "🚗 Vos véhicules :", view=view, delete_after=120)
