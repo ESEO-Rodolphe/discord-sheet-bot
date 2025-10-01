@@ -50,13 +50,12 @@ class CarSelectionView(View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
         self.user_id = user_id
+        self.last_ephemeral_msg = None
 
-        # Bouton recherche
         search_btn = Button(label="🔍 Rechercher une voiture", style=discord.ButtonStyle.secondary)
         search_btn.callback = self.open_search_modal
         self.add_item(search_btn)
 
-        # Bouton pour voir ses véhicules
         my_cars_btn = Button(label="🚗 Voir mes véhicules", style=discord.ButtonStyle.primary)
         my_cars_btn.callback = self.show_my_cars
         self.add_item(my_cars_btn)
@@ -64,6 +63,21 @@ class CarSelectionView(View):
     async def open_search_modal(self, interaction: discord.Interaction):
         modal = CarSearchModal(self)
         await interaction.response.send_modal(modal)
+
+    async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None, delete_after: int = 120):
+        """Envoie un message éphémère et supprime le précédent si existe"""
+        try:
+            if self.last_ephemeral_msg:
+                await self.last_ephemeral_msg.delete()
+        except:
+            pass
+
+        msg = await interaction.response.send_message(content, view=view, ephemeral=True, delete_after=delete_after)
+        
+        try:
+            self.last_ephemeral_msg = await interaction.original_response()
+        except:
+            self.last_ephemeral_msg = None
 
     async def update_options(self, interaction: discord.Interaction, keyword: str):
         cars = search_cars(keyword)[:25]  # Limite à 25
@@ -74,24 +88,20 @@ class CarSelectionView(View):
             for car in cars
         ]
 
-        # Crée une View pour le Select
         view = View()
         view.add_item(CarSelect(select_options, self, self.user_id))
-
-        await interaction.response.send_message("Sélectionnez vos voitures :", view=view, ephemeral=True, delete_after=120)
+        await self.send_ephemeral(interaction, "Sélectionnez vos voitures :", view=view, delete_after=120)
 
     async def reset_view(self, interaction: discord.Interaction):
         """Réinitialise la vue principale"""
-        # Édite le message original si possible
         try:
             await interaction.edit_original_response(view=self)
         except discord.errors.InteractionResponded:
-            # Si déjà répondu, envoyer un nouveau message éphémère
             await interaction.followup.send("💡 Menu réinitialisé.", view=self, ephemeral=True)
 
     async def show_my_cars(self, interaction: discord.Interaction):
         """Affiche les véhicules de l'utilisateur avec possibilité de dé-sélectionner"""
-        user_cars = get_user_subscriptions(self.user_id)[:25]  # Limite à 25
+        user_cars = get_user_subscriptions(self.user_id)[:25]
         if not user_cars:
             await interaction.response.send_message("🚗 Vous ne suivez encore aucune voiture.", ephemeral=True, delete_after=5)
             return
@@ -103,4 +113,4 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self, self.user_id))
-        await interaction.response.send_message("🚗 Vos véhicules (déselectionner pour retirer) :", view=view, ephemeral=True, delete_after=120)
+        await self.send_ephemeral(interaction, "🚗 Vos véhicules (déselectionner pour retirer) :", view=view, delete_after=120)
