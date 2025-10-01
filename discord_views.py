@@ -42,10 +42,8 @@ class CarSelect(Select):
         await interaction.response.send_message(
             "✅ Vos abonnements ont été mis à jour.", 
             ephemeral=True, 
-            delete_after=10
+            delete_after=5
         )
-
-        await self.view_ref.reset_view(interaction)
 
 # ---------- Vue principale ----------
 class CarSelectionView(View):
@@ -80,7 +78,7 @@ class CarSelectionView(View):
         view = View()
         view.add_item(CarSelect(select_options, self, self.user_id))
 
-        await interaction.response.send_message("Sélectionnez vos voitures :", view=view, ephemeral=True)
+        await interaction.response.send_message("Sélectionnez vos voitures :", view=view, ephemeral=True, delete_after=120)
 
     async def reset_view(self, interaction: discord.Interaction):
         """Réinitialise la vue principale"""
@@ -95,7 +93,7 @@ class CarSelectionView(View):
         """Affiche les véhicules de l'utilisateur avec possibilité de dé-sélectionner"""
         user_cars = get_user_subscriptions(self.user_id)[:25]  # Limite à 25
         if not user_cars:
-            await interaction.response.send_message("🚗 Vous ne suivez encore aucune voiture.", ephemeral=True)
+            await interaction.response.send_message("🚗 Vous ne suivez encore aucune voiture.", ephemeral=True, delete_after=5)
             return
 
         select_options = [
@@ -105,4 +103,4 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self, self.user_id))
-        await interaction.response.send_message("🚗 Vos véhicules (déselectionner pour retirer) :", view=view, ephemeral=True)
+        await interaction.response.send_message("🚗 Vos véhicules (déselectionner pour retirer) :", view=view, ephemeral=True, delete_after=120)
