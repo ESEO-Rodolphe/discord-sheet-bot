@@ -27,20 +27,25 @@ class CarSelect(Select):
         self.user_id = user_id
 
     async def callback(self, interaction: discord.Interaction):
-        selected = self.values
-        current = get_user_subscriptions(self.user_id)
+    selected = self.values
+    current = get_user_subscriptions(self.user_id)
 
-        for car in selected:
-            if car not in current:
-                add_subscription(self.user_id, car)
-                
-        menu_cars = [opt.label for opt in self.options] 
-        for car in menu_cars:
-            if car in current and car not in selected:
-                remove_subscription(self.user_id, car)
+    for car in selected:
+        if car not in current:
+            add_subscription(self.user_id, car)
+            
+    menu_cars = [opt.label for opt in self.options] 
+    for car in menu_cars:
+        if car in current and car not in selected:
+            remove_subscription(self.user_id, car)
 
-        # await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
-        await self.view_ref.reset_view(interaction)
+    await interaction.response.send_message(
+        "✅ Vos abonnements ont été mis à jour.", 
+        ephemeral=True, 
+        delete_after=10
+    )
+
+    await self.view_ref.reset_view(interaction)
 
 # ---------- Vue principale ----------
 class CarSelectionView(View):
