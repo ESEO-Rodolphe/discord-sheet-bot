@@ -5,7 +5,7 @@ from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
 
-from sheets_api import ws_bdd, get_all_cars, get_user_subscriptions, get_user_subscriptions_by_car
+from sheets_api import ws_bdd, get_user_subscriptions_by_car
 from discord_views import CarSelectionView
 
 # ---------------------------- Charger les variables d'environnement ----------------------------
@@ -56,21 +56,41 @@ def run_web():
 
 threading.Thread(target=run_web, daemon=True).start()
 
-# ---------------------------- Commandes Discord ----------------------------
+# ---------------------------- File d'attente de DMs sécurisée ----------------------------
+dm_queue = asyncio.Queue()
+
+async def dm_worker():
+    """Traite la file d'attente des DMs en série pour éviter le flood."""
+    while True:
+        user_id, message = await dm_queue.get()
+        try:
+            user = await bot.fetch_user(user_id)
+            await user.send(message)
+            await asyncio.sleep(1.5)  # pause entre chaque DM
+        except Exception as e:
+            print(f"⚠️ Erreur envoi DM à {user_id} : {e}")
+        finally:
+            dm_queue.task_done()
+
+# ---------------------------- Commande Discord ----------------------------
 @bot.command()
 async def recherche(ctx):
-    """Poste le panneau interactif"""
+    """Affiche le panneau interactif et supprime le message utilisateur."""
     view = CarSelectionView()
     embed = discord.Embed(
-        title="Sélection de véhicules",
+        title="🔎 Sélection de véhicules",
         description=(
-            "🔍 Tapez un mot-clé pour rechercher des véhicules.\n"
-            "Utilisez le menu ouvrant pour ajouter ou retirer des véhicules.\n"
-            "Cliquez sur 'Voir mes véhicules' pour gérer vos abonnements."
-        )
+            "Tapez un mot-clé pour rechercher des véhicules.\n"
+            "Utilisez le menu déroulant pour vous abonner ou vous désabonner.\n"
+            "Cliquez sur **Voir mes véhicules** pour gérer vos abonnements."
+        ),
+        color=discord.Color.blurple()
     )
     await ctx.send(embed=embed, view=view)
-    await ctx.message.delete()
+    try:
+        await ctx.message.delete()  # supprime le message "!recherche"
+    except discord.errors.Forbidden:
+        pass  # le bot n’a pas la permission
 
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
@@ -141,10 +161,13 @@ async def poll_sheet():
             for user_id_str in subscribers:
                 try:
                     user_id = int(user_id_str)
-                    user = await bot.fetch_user(user_id)
-                    await user.send(f"🔔 Bonne nouvelle ! Le véhicule **{car_name}** est disponible !\n\nTu veux le réserver ? https://discord.com/channels/1205910299681755257/1368601043587432498\nOu retrouve nous au Hayes")
+                    await dm_queue.put((
+                        user_id,
+                        f"🔔 Nouvelle voiture dispo : **{car_name}** !\n"
+                        f"👉 Rejoins le salon : https://discord.com/channels/{bot.user.id}/{CHANNEL_ID}"
+                    ))
                 except Exception as e:
-                    print(f"Impossible d'envoyer DM à {user_id_str} : {e}")
+                    print(f"Erreur ajout file DM : {e}")
 
             state["last_value"] = car_name
             save_state(state)
@@ -158,7 +181,9 @@ async def on_ready():
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
     if not poll_sheet.is_running():
         poll_sheet.start()
+    # Lance la file d’attente DM sécurisée
+    bot.loop.create_task(dm_worker())
 
-# ---------------------------- Lancement du bot --------------------
+# ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":
     bot.run(TOKEN)
