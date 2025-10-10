@@ -65,15 +65,15 @@ class CarSelectionView(View):
         await interaction.response.send_modal(modal)
 
     async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None, delete_after: int = 120):
-        """Envoie un message éphémère et supprime le précédent si existe"""
+        """Envoie un message éphémère unique ou met à jour l'existant"""
         try:
             if self.last_ephemeral_msg:
-                await self.last_ephemeral_msg.delete()
-        except:
+                await interaction.edit_original_response(content=content, view=view)
+                return
+        except Exception:
             pass
 
-        await interaction.response.send_message(content, view=view, ephemeral=True, delete_after=delete_after)
-        
+        await interaction.response.send_message(content, view=view, ephemeral=True)
         try:
             self.last_ephemeral_msg = await interaction.original_response()
         except:
