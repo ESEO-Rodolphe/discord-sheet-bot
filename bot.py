@@ -4,6 +4,7 @@ import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
+import asyncio
 
 from sheets_api import ws_bdd, get_user_subscriptions_by_car
 from discord_views import CarSelectionView
@@ -186,4 +187,14 @@ async def on_ready():
 
 # ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":
-    bot.run(TOKEN)
+
+    async def main():
+        try:
+            await bot.start(TOKEN)
+        except discord.errors.HTTPException as e:
+            if e.status == 429:
+                print("⚠️ Rate limited by Discord — arrêt du bot pour éviter un blocage IP.")
+            else:
+                raise e
+
+    asyncio.run(main())
