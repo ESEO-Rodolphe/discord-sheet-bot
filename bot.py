@@ -23,28 +23,21 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ---------------------------- Gestion de l'état ----------------------------
-STATE_CELL = "P1"
-
 def load_state():
-    """Lit le dernier car_name envoyé depuis la cellule P1"""
+    if not os.path.exists(STATE_FILE):
+        return {"last_value": None}
     try:
-        value = ws_bdd.acell(STATE_CELL).value
-        if not value:  # vide ou None
-            print("📝 STATE_CELL vide, initialisation nécessaire.")
-            return {"last_value": None}
-        print(f"📝 STATE_CELL lu avec succès : '{value}'")
-        return {"last_value": value}
-    except Exception as e:
-        print("⚠️ Erreur lecture STATE_CELL :", e)
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
         return {"last_value": None}
 
-def save_state(car_name):
-    """Sauvegarde le dernier car_name envoyé dans la cellule P1"""
+def save_state(state):
     try:
-        ws_bdd.update(STATE_CELL, car_name)
-        print(f"📝 STATE_CELL mise à jour avec '{car_name}'")
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
     except Exception as e:
-        print("⚠️ Erreur sauvegarde STATE_CELL :", e)
+        print("Erreur lors de la sauvegarde de l'état :", e)
 
 state = load_state()
 
@@ -74,7 +67,7 @@ async def dm_worker():
         try:
             user = await bot.fetch_user(user_id)
             await user.send(message)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.5)  # pause entre chaque DM
         except Exception as e:
             print(f"⚠️ Erreur envoi DM à {user_id} : {e}")
         finally:
@@ -96,9 +89,9 @@ async def recherche(ctx):
     )
     await ctx.send(embed=embed, view=view)
     try:
-        await ctx.message.delete()
+        await ctx.message.delete()  # supprime le message "!recherche"
     except discord.errors.Forbidden:
-        pass
+        pass  # le bot n’a pas la permission
 
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
@@ -108,28 +101,24 @@ def get_sheet_data():
 # ---------------------------- Boucle de vérification ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
-    print("poll_sheet lancé...")
     try:
         loop = asyncio.get_event_loop()
         rows = await loop.run_in_executor(None, get_sheet_data)
 
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
-            print("Aucune voiture trouvée dans la feuille.")
             return
 
         last_row = meaningful_rows[-1]
         car_name = last_row[22].strip()
         prev_value = state.get("last_value")
 
-        # --- Initialisation si aucune valeur ---
         if prev_value is None:
             state["last_value"] = car_name
-            save_state(car_name)
-            print(f"Initialisé avec la voiture '{car_name}' — aucun envoi.")
+            save_state(state)
+            print(f"Initialisé avec la voiture '{car_name}' (aucun envoi).")
             return
 
-        # Nouvelle voiture détectée
         if car_name != prev_value:
             ch = bot.get_channel(CHANNEL_ID)
             if ch is None:
@@ -169,7 +158,6 @@ async def poll_sheet():
                 )
                 await ch.send(msg)
 
-            # Envoi des DMs aux abonnés
             subscribers = get_user_subscriptions_by_car(car_name)
             for user_id_str in subscribers:
                 try:
@@ -177,12 +165,13 @@ async def poll_sheet():
                     await dm_queue.put((
                         user_id,
                         f"🔔 Nouvelle voiture dispo : **{car_name}** !\n"
+                        f"👉 Rejoins le salon : https://discord.com/channels/{bot.user.id}/{CHANNEL_ID}"
                     ))
                 except Exception as e:
                     print(f"Erreur ajout file DM : {e}")
 
             state["last_value"] = car_name
-            save_state(car_name)
+            save_state(state)
 
     except Exception as e:
         print("Erreur lors du polling :", e)
@@ -190,12 +179,11 @@ async def poll_sheet():
 # ---------------------------- on_ready ----------------------------
 @bot.event
 async def on_ready():
-    bot.add_view(CarSelectionView())
+    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
     if not poll_sheet.is_running():
         poll_sheet.start()
-        print("🌀 Boucle poll_sheet démarrée !")
+    # Lance la file d’attente DM sécurisée
     bot.loop.create_task(dm_worker())
-    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
 
 # ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":
