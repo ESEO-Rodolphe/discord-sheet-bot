@@ -165,7 +165,6 @@ async def poll_sheet():
                     await dm_queue.put((
                         user_id,
                         f"🔔 Nouvelle voiture dispo : **{car_name}** !\n"
-                        f"👉 Rejoins le salon : https://discord.com/channels/{bot.user.id}/{CHANNEL_ID}"
                     ))
                 except Exception as e:
                     print(f"Erreur ajout file DM : {e}")
