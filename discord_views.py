@@ -33,12 +33,13 @@ class CarSelect(Select):
             if car not in current:
                 add_subscription(user_id, car)
 
-        for car in current:
-            if car not in selected:
+        menu_cars = [opt.label for opt in self.options]
+
+        for car in menu_cars:
+            if car in current and car not in selected:
                 remove_subscription(user_id, car)
 
         await self.view_ref.safe_reply(interaction, "✅ Vos abonnements ont été mis à jour.")
-
 
 class CarSelectionView(View):
     def __init__(self):
