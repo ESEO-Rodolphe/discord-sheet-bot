@@ -29,8 +29,10 @@ def load_state():
     """Lit le dernier car_name envoyé depuis la cellule P1"""
     try:
         value = ws_bdd.acell(STATE_CELL).value
-        if value is None:
+        if not value:  # vide ou None
+            print("📝 STATE_CELL vide, initialisation nécessaire.")
             return {"last_value": None}
+        print(f"📝 STATE_CELL lu avec succès : '{value}'")
         return {"last_value": value}
     except Exception as e:
         print("⚠️ Erreur lecture STATE_CELL :", e)
@@ -40,6 +42,7 @@ def save_state(car_name):
     """Sauvegarde le dernier car_name envoyé dans la cellule P1"""
     try:
         ws_bdd.update(STATE_CELL, car_name)
+        print(f"📝 STATE_CELL mise à jour avec '{car_name}'")
     except Exception as e:
         print("⚠️ Erreur sauvegarde STATE_CELL :", e)
 
@@ -112,12 +115,14 @@ async def poll_sheet():
 
         meaningful_rows = [r for r in rows if len(r) > 22 and r[22].strip() != ""]
         if not meaningful_rows:
+            print("Aucune voiture trouvée dans la feuille.")
             return
 
         last_row = meaningful_rows[-1]
         car_name = last_row[22].strip()
         prev_value = state.get("last_value")
 
+        # --- Initialisation si aucune valeur ---
         if prev_value is None:
             state["last_value"] = car_name
             save_state(car_name)
