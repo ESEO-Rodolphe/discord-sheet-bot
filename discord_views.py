@@ -36,9 +36,9 @@ class CarSelect(Select):
                 remove_subscription(user_id, car)
 
         try:
-            await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
+            await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True, delete_after=8)
         except discord.errors.InteractionResponded:
-            await interaction.followup.send("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
+            await interaction.followup.send("✅ Vos abonnements ont été mis à jour.", ephemeral=True, delete_after=8)
 
 class CarSelectionView(View):
     def __init__(self):
@@ -57,18 +57,35 @@ class CarSelectionView(View):
         modal = CarSearchModal(self)
         await interaction.response.send_modal(modal)
 
-    async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
-        """Envoie une réponse éphémère proprement — nouvelle à chaque interaction."""
+        async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
+        """Gère un seul message éphémère par utilisateur : le met à jour si possible."""
         try:
+            if hasattr(self, "user_ephemeral_messages") and interaction.user.id in self.user_ephemeral_messages:
+                msg = self.user_ephemeral_messages[interaction.user.id]
+                try:
+                    await msg.edit(content=content, view=view)
+                    return
+                except Exception:
+                    del self.user_ephemeral_messages[interaction.user.id]
+
             await interaction.response.send_message(content, view=view, ephemeral=True)
+            msg = await interaction.original_response()
+
+            if not hasattr(self, "user_ephemeral_messages"):
+                self.user_ephemeral_messages = {}
+            self.user_ephemeral_messages[interaction.user.id] = msg
+
         except discord.errors.InteractionResponded:
-            await interaction.followup.send(content, view=view, ephemeral=True)
+            msg = await interaction.followup.send(content, view=view, ephemeral=True)
+            if not hasattr(self, "user_ephemeral_messages"):
+                self.user_ephemeral_messages = {}
+            self.user_ephemeral_messages[interaction.user.id] = msg
         except Exception as e:
             print("Erreur send_ephemeral :", e)
 
     async def update_options(self, interaction: discord.Interaction, keyword: str):
         user_id = interaction.user.id
-        cars = search_cars(keyword)[:25]  # Limite à 25
+        cars = search_cars(keyword)[:25]
         user_subs = get_user_subscriptions(user_id)
 
         select_options = [
@@ -78,7 +95,7 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "Sélectionnez vos véhicules :", view=view)
+        await self.send_ephemeral(interaction, "Sélectionnez vos véhicules :", view=view, delete_after=120)
 
     async def show_my_cars(self, interaction: discord.Interaction):
         user_id = interaction.user.id
@@ -86,9 +103,9 @@ class CarSelectionView(View):
 
         if not user_cars:
             try:
-                await interaction.response.send_message("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True)
+                await interaction.response.send_message("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True, delete_after=15)
             except discord.errors.InteractionResponded:
-                await interaction.followup.send("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True)
+                await interaction.followup.send("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True, delete_after=15)
             return
 
         select_options = [
@@ -98,4 +115,5 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "🚗 Vos véhicules :", view=view)
+        await self.send_ephemeral(interaction, "🚗 Vos véhicules :", view=view, delete_after=120)
+        
