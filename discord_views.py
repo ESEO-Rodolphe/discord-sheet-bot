@@ -57,8 +57,7 @@ class CarSelectionView(View):
         modal = CarSearchModal(self)
         await interaction.response.send_modal(modal)
 
-        async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
-        """Gère un seul message éphémère par utilisateur : le met à jour si possible."""
+    async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
         try:
             if hasattr(self, "user_ephemeral_messages") and interaction.user.id in self.user_ephemeral_messages:
                 msg = self.user_ephemeral_messages[interaction.user.id]
