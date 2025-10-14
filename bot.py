@@ -23,25 +23,25 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ---------------------------- Gestion de l'état ----------------------------
+STATE_CELL = "P1"
+
 def load_state():
-    if not os.path.exists(STATE_FILE):
-        print("ℹ️ Aucun fichier d'état trouvé, initialisation neuve.")
-        return {"last_value": None}
+    """Lit le dernier car_name envoyé depuis la cellule P1"""
     try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            print("📁 État chargé :", data)
-            return data
+        value = ws_bdd.acell(STATE_CELL).value
+        if value is None:
+            return {"last_value": None}
+        return {"last_value": value}
     except Exception as e:
-        print("⚠️ Erreur lecture STATE_FILE :", e)
+        print("⚠️ Erreur lecture STATE_CELL :", e)
         return {"last_value": None}
 
-def save_state(state):
+def save_state(car_name):
+    """Sauvegarde le dernier car_name envoyé dans la cellule P1"""
     try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f)
+        ws_bdd.update(STATE_CELL, car_name)
     except Exception as e:
-        print("Erreur lors de la sauvegarde de l'état :", e)
+        print("⚠️ Erreur sauvegarde STATE_CELL :", e)
 
 state = load_state()
 
@@ -120,10 +120,11 @@ async def poll_sheet():
 
         if prev_value is None:
             state["last_value"] = car_name
-            save_state(state)
-            print(f"Initialisé avec la voiture '{car_name}' (aucun envoi).")
+            save_state(car_name)
+            print(f"Initialisé avec la voiture '{car_name}' — aucun envoi.")
             return
 
+        # Nouvelle voiture détectée
         if car_name != prev_value:
             ch = bot.get_channel(CHANNEL_ID)
             if ch is None:
@@ -163,6 +164,7 @@ async def poll_sheet():
                 )
                 await ch.send(msg)
 
+            # Envoi des DMs aux abonnés
             subscribers = get_user_subscriptions_by_car(car_name)
             for user_id_str in subscribers:
                 try:
@@ -170,13 +172,12 @@ async def poll_sheet():
                     await dm_queue.put((
                         user_id,
                         f"🔔 Nouvelle voiture dispo : **{car_name}** !\n"
-                        f"👉 Rejoins le salon : https://discord.com/channels/{bot.user.id}/{CHANNEL_ID}"
                     ))
                 except Exception as e:
                     print(f"Erreur ajout file DM : {e}")
 
             state["last_value"] = car_name
-            save_state(state)
+            save_state(car_name)
 
     except Exception as e:
         print("Erreur lors du polling :", e)
