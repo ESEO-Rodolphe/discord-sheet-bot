@@ -67,7 +67,7 @@ async def dm_worker():
         try:
             user = await bot.fetch_user(user_id)
             await user.send(message)
-            await asyncio.sleep(1.5)  # pause entre chaque DM
+            await asyncio.sleep(1.5)
         except Exception as e:
             print(f"⚠️ Erreur envoi DM à {user_id} : {e}")
         finally:
@@ -89,9 +89,9 @@ async def recherche(ctx):
     )
     await ctx.send(embed=embed, view=view)
     try:
-        await ctx.message.delete()  # supprime le message "!recherche"
+        await ctx.message.delete()
     except discord.errors.Forbidden:
-        pass  # le bot n’a pas la permission
+        pass
 
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
@@ -179,11 +179,11 @@ async def poll_sheet():
 # ---------------------------- on_ready ----------------------------
 @bot.event
 async def on_ready():
-    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
+    bot.add_view(CarSelectionView())
     if not poll_sheet.is_running():
         poll_sheet.start()
-    # Lance la file d’attente DM sécurisée
     bot.loop.create_task(dm_worker())
+    print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
 
 # ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":

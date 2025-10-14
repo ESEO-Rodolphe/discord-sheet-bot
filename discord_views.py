@@ -2,7 +2,6 @@ import discord
 from discord.ui import View, Select, Button, Modal, TextInput
 from sheets_api import search_cars, get_user_subscriptions, add_subscription, remove_subscription
 
-# ---------- Modal pour saisir un mot-clé ----------
 class CarSearchModal(Modal):
     def __init__(self, view_ref):
         super().__init__(title="Rechercher un véhicule")
@@ -13,13 +12,12 @@ class CarSearchModal(Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await self.view_ref.update_options(interaction, self.keyword_input.value)
 
-# ---------- Menu déroulant multi-sélection ----------
 class CarSelect(Select):
     def __init__(self, options, view_ref):
         super().__init__(
             placeholder="Sélectionnez vos véhicules...",
             min_values=0,
-            max_values=len(options),
+            max_values=len(options) if len(options) > 0 else 1,  # éviter 0 explicite
             options=options
         )
         self.view_ref = view_ref
@@ -32,24 +30,19 @@ class CarSelect(Select):
         for car in selected:
             if car not in current:
                 add_subscription(user_id, car)
-        
-        menu_cars = [opt.label for opt in self.options]
-        for car in menu_cars:
-            if car in current and car not in selected:
+
+        for car in current:
+            if car not in selected:
                 remove_subscription(user_id, car)
 
-        await interaction.response.send_message(
-            "✅ Vos abonnements ont été mis à jour.", 
-            ephemeral=True, 
-            delete_after=5
-        )
+        try:
+            await interaction.response.send_message("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send("✅ Vos abonnements ont été mis à jour.", ephemeral=True)
 
-# ---------- Vue principale ----------
 class CarSelectionView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.last_ephemeral_msg = None
-
         # Bouton recherche
         search_btn = Button(label="🔍 Rechercher un véhicule", style=discord.ButtonStyle.secondary)
         search_btn.callback = self.open_search_modal
@@ -64,20 +57,14 @@ class CarSelectionView(View):
         modal = CarSearchModal(self)
         await interaction.response.send_modal(modal)
 
-    async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None, delete_after: int = 120):
-        """Envoie un message éphémère unique ou met à jour l'existant"""
+    async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
+        """Envoie une réponse éphémère proprement — nouvelle à chaque interaction."""
         try:
-            if self.last_ephemeral_msg:
-                await interaction.edit_original_response(content=content, view=view)
-                return
-        except Exception:
-            pass
-
-        await interaction.response.send_message(content, view=view, ephemeral=True)
-        try:
-            self.last_ephemeral_msg = await interaction.original_response()
-        except:
-            self.last_ephemeral_msg = None
+            await interaction.response.send_message(content, view=view, ephemeral=True)
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send(content, view=view, ephemeral=True)
+        except Exception as e:
+            print("Erreur send_ephemeral :", e)
 
     async def update_options(self, interaction: discord.Interaction, keyword: str):
         user_id = interaction.user.id
@@ -85,20 +72,23 @@ class CarSelectionView(View):
         user_subs = get_user_subscriptions(user_id)
 
         select_options = [
-            discord.SelectOption(label=car, default=car in user_subs)
+            discord.SelectOption(label=car, default=(car in user_subs))
             for car in cars
         ]
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "Sélectionnez vos véhicules :", view=view, delete_after=120)
+        await self.send_ephemeral(interaction, "Sélectionnez vos véhicules :", view=view)
 
     async def show_my_cars(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         user_cars = get_user_subscriptions(user_id)[:25]
 
         if not user_cars:
-            await interaction.response.send_message("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True, delete_after=5)
+            try:
+                await interaction.response.send_message("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True)
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send("🚗 Vous ne suivez encore aucun véhicule.", ephemeral=True)
             return
 
         select_options = [
@@ -108,4 +98,4 @@ class CarSelectionView(View):
 
         view = View()
         view.add_item(CarSelect(select_options, self))
-        await self.send_ephemeral(interaction, "🚗 Vos véhicules :", view=view, delete_after=120)
+        await self.send_ephemeral(interaction, "🚗 Vos véhicules :", view=view)
