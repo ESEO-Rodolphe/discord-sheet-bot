@@ -52,12 +52,14 @@ class CarSelectionView(View):
         my_cars_btn.callback = self.show_my_cars
         self.add_item(my_cars_btn)
 
-        self.user_ephemeral_messages = {}  # pour chaque utilisateur
+        # dictionnaire des messages éphémères par utilisateur
+        self.user_ephemeral_messages = {}
 
     async def safe_reply(self, interaction: discord.Interaction, content: str, view: View = None):
-        """Répond proprement à une interaction, sans spam ni erreur."""
+        """Répond proprement à une interaction sans spam ni doublons."""
         try:
-            if interaction.response.is_done():
+            # si une réponse a déjà été envoyée
+            if getattr(interaction, "response", None) and interaction.response.is_done():
                 await interaction.followup.send(content, view=view, ephemeral=True)
             else:
                 await interaction.response.send_message(content, view=view, ephemeral=True)
@@ -69,24 +71,27 @@ class CarSelectionView(View):
         await interaction.response.send_modal(modal)
 
     async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
-        """Évite les doublons d’interactions et met à jour le message précédent proprement."""
+        """Supprime l'ancien message éphémère de l'utilisateur avant d'en envoyer un nouveau."""
         try:
             user_id = interaction.user.id
-            old_msg = self.user_ephemeral_messages.get(user_id)
 
+            # Supprimer le précédent message éphémère si possible
+            old_msg = self.user_ephemeral_messages.get(user_id)
             if old_msg:
                 try:
-                    await old_msg.edit(content=content, view=view)
-                    return
+                    await old_msg.delete()
                 except Exception:
-                    del self.user_ephemeral_messages[user_id]
+                    pass  # message déjà supprimé ou expiré
+                del self.user_ephemeral_messages[user_id]
 
-            if interaction.response.is_done():
+            # Envoyer le nouveau message éphémère
+            if getattr(interaction, "response", None) and interaction.response.is_done():
                 msg = await interaction.followup.send(content, view=view, ephemeral=True)
             else:
                 await interaction.response.send_message(content, view=view, ephemeral=True)
                 msg = await interaction.original_response()
 
+            # Mémoriser le dernier message envoyé à cet utilisateur
             self.user_ephemeral_messages[user_id] = msg
 
         except Exception as e:
