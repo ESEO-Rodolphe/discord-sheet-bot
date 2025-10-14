@@ -25,11 +25,15 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ---------------------------- Gestion de l'état ----------------------------
 def load_state():
     if not os.path.exists(STATE_FILE):
+        print("ℹ️ Aucun fichier d'état trouvé, initialisation neuve.")
         return {"last_value": None}
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+            data = json.load(f)
+            print("📁 État chargé :", data)
+            return data
+    except Exception as e:
+        print("⚠️ Erreur lecture STATE_FILE :", e)
         return {"last_value": None}
 
 def save_state(state):
@@ -101,6 +105,7 @@ def get_sheet_data():
 # ---------------------------- Boucle de vérification ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
 async def poll_sheet():
+    print("poll_sheet lancé...")
     try:
         loop = asyncio.get_event_loop()
         rows = await loop.run_in_executor(None, get_sheet_data)
@@ -182,6 +187,7 @@ async def on_ready():
     bot.add_view(CarSelectionView())
     if not poll_sheet.is_running():
         poll_sheet.start()
+        print("🌀 Boucle poll_sheet démarrée !")
     bot.loop.create_task(dm_worker())
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
 
