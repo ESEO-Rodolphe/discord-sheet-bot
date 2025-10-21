@@ -102,9 +102,8 @@ async def help(ctx):
     embed = discord.Embed(
         title="📘 Aide du bot",
         description=(
-            "**!recherche** → Rechercher un véhicule et s’abonner.\n"
-            "**!selection** → Voir ou modifier vos abonnements actuels.\n\n"
-            "_Tous les messages sont privés et visibles uniquement par vous._"
+            "**/recherche** → Rechercher un véhicule et s’abonner.\n"
+            "**/selection** → Voir ou modifier vos abonnements actuels.\n\n"
         ),
         color=discord.Color.blue()
     )
