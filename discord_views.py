@@ -1,5 +1,6 @@
+# discord_views.py
 import discord
-from discord.ui import View, Select, Button, Modal, TextInput
+from discord.ui import View, Select, Modal, TextInput
 from sheets_api import search_cars, get_user_subscriptions, add_subscription, remove_subscription
 
 
@@ -34,32 +35,21 @@ class CarSelect(Select):
                 add_subscription(user_id, car)
 
         menu_cars = [opt.label for opt in self.options]
-
         for car in menu_cars:
             if car in current and car not in selected:
                 remove_subscription(user_id, car)
 
         await self.view_ref.safe_reply(interaction, "✅ Vos abonnements ont été mis à jour.")
 
+
 class CarSelectionView(View):
     def __init__(self):
         super().__init__(timeout=None)
-
-        search_btn = Button(label="🔍 Rechercher un véhicule", style=discord.ButtonStyle.secondary)
-        search_btn.callback = self.open_search_modal
-        self.add_item(search_btn)
-
-        my_cars_btn = Button(label="🚗 Voir mes véhicules", style=discord.ButtonStyle.primary)
-        my_cars_btn.callback = self.show_my_cars
-        self.add_item(my_cars_btn)
-
-        # dictionnaire des messages éphémères par utilisateur
         self.user_ephemeral_messages = {}
 
     async def safe_reply(self, interaction: discord.Interaction, content: str, view: View = None):
         """Répond proprement à une interaction sans spam ni doublons."""
         try:
-            # si une réponse a déjà été envoyée
             if getattr(interaction, "response", None) and interaction.response.is_done():
                 await interaction.followup.send(content, view=view, ephemeral=True)
             else:
@@ -67,32 +57,24 @@ class CarSelectionView(View):
         except Exception as e:
             print("Erreur safe_reply :", e)
 
-    async def open_search_modal(self, interaction: discord.Interaction):
-        modal = CarSearchModal(self)
-        await interaction.response.send_modal(modal)
-
     async def send_ephemeral(self, interaction: discord.Interaction, content: str, view: View = None):
         """Supprime l'ancien message éphémère de l'utilisateur avant d'en envoyer un nouveau."""
         try:
             user_id = interaction.user.id
-
-            # Supprimer le précédent message éphémère si possible
             old_msg = self.user_ephemeral_messages.get(user_id)
             if old_msg:
                 try:
                     await old_msg.delete()
                 except Exception:
-                    pass  # message déjà supprimé ou expiré
+                    pass
                 del self.user_ephemeral_messages[user_id]
 
-            # Envoyer le nouveau message éphémère
             if getattr(interaction, "response", None) and interaction.response.is_done():
                 msg = await interaction.followup.send(content, view=view, ephemeral=True)
             else:
                 await interaction.response.send_message(content, view=view, ephemeral=True)
                 msg = await interaction.original_response()
 
-            # Mémoriser le dernier message envoyé à cet utilisateur
             self.user_ephemeral_messages[user_id] = msg
 
         except Exception as e:

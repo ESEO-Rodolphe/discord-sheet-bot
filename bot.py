@@ -4,10 +4,9 @@ import discord
 from discord.ext import tasks, commands
 from fastapi import FastAPI
 import uvicorn
-import asyncio
 
 from sheets_api import ws_bdd, get_user_subscriptions_by_car
-from discord_views import CarSelectionView
+from discord_views import CarSelectionView, CarSearchModal
 
 # ---------------------------- Charger les variables d'environnement ----------------------------
 load_dotenv()
@@ -67,36 +66,59 @@ async def dm_worker():
         try:
             user = await bot.fetch_user(user_id)
             await user.send(message)
-            await asyncio.sleep(1.5)  # pause entre chaque DM
+            await asyncio.sleep(1.5)
         except Exception as e:
             print(f"⚠️ Erreur envoi DM à {user_id} : {e}")
         finally:
             dm_queue.task_done()
 
-# ---------------------------- Commande Discord ----------------------------
-@bot.command()
-async def recherche(ctx):
-    """Affiche le panneau interactif et supprime le message utilisateur."""
-    view = CarSelectionView()
-    embed = discord.Embed(
-        title="🔎 Sélection de véhicules",
-        description=(
-            "Tapez un mot-clé pour rechercher des véhicules.\n"
-            "Utilisez le menu déroulant pour vous abonner ou vous désabonner.\n"
-            "Cliquez sur **Voir mes véhicules** pour gérer vos abonnements."
-        ),
-        color=discord.Color.blurple()
-    )
-    await ctx.send(embed=embed, view=view)
-    try:
-        await ctx.message.delete()  # supprime le message "!recherche"
-    except discord.errors.Forbidden:
-        pass  # le bot n’a pas la permission
-
 # ---------------------------- Connexion Google Sheets ----------------------------
 def get_sheet_data():
     """Récupère toutes les lignes de la feuille BDD"""
     return ws_bdd.get_all_values()
+
+# ---------------------------- Commandes Discord ----------------------------
+
+@bot.tree.command(name="recherche", description="Rechercher un véhicule et s’abonner.")
+async def recherche(interaction: discord.Interaction):
+    """Ouvre directement le modal de recherche"""
+    view = CarSelectionView()
+    modal = CarSearchModal(view)
+    await interaction.response.send_modal(modal)
+    # le reste (sélecteur) se gère dans le modal
+    # message effacé automatiquement par Discord (slash command éphémère)
+
+
+@bot.tree.command(name="selection", description="Voir ou modifier vos abonnements.")
+async def selection(interaction: discord.Interaction):
+    """Affiche les abonnements actuels de l’utilisateur (éphémère)."""
+    view = CarSelectionView()
+    await view.show_my_cars(interaction)  # Envoie un message éphémère
+    # visible uniquement par l’utilisateur
+
+@bot.command()
+async def help(ctx):
+    """Affiche un guide des commandes disponibles."""
+    embed = discord.Embed(
+        title="📘 Aide du bot",
+        description=(
+            "**!recherche** → Rechercher un véhicule et s’abonner.\n"
+            "**!selection** → Voir ou modifier vos abonnements actuels.\n\n"
+            "_Tous les messages sont privés et visibles uniquement par vous._"
+        ),
+        color=discord.Color.blue()
+    )
+    try:
+        await ctx.author.send(embed=embed)
+        await ctx.send(f"{ctx.author.mention}, je t’ai envoyé l’aide en message privé.", delete_after=10)
+    except Exception as e:
+        print("Erreur envoi aide :", e)
+    finally:
+        try:
+            await ctx.message.delete()
+        except discord.errors.Forbidden:
+            pass
+
 
 # ---------------------------- Boucle de vérification ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
@@ -181,8 +203,12 @@ async def on_ready():
     print(f"✅ Connecté comme {bot.user} (id: {bot.user.id})")
     if not poll_sheet.is_running():
         poll_sheet.start()
-    # Lance la file d’attente DM sécurisée
     bot.loop.create_task(dm_worker())
+    try:
+        synced = await bot.tree.sync()
+        print(f"📡 {len(synced)} commandes slash synchronisées.")
+    except Exception as e:
+        print(f"Erreur sync slash commands : {e}")
 
 # ---------------------------- Lancement du bot ----------------------------
 if __name__ == "__main__":
