@@ -93,12 +93,10 @@ async def recherche(interaction: discord.Interaction):
 async def selection(interaction: discord.Interaction):
     """Affiche les abonnements actuels de l’utilisateur (éphémère)."""
     view = CarSelectionView()
-    await view.show_my_cars(interaction)  # Envoie un message éphémère
-    # visible uniquement par l’utilisateur
+    await view.show_my_cars(interaction)
 
 @bot.command()
 async def help(ctx):
-    """Affiche un guide des commandes disponibles."""
     embed = discord.Embed(
         title="📘 Aide du bot",
         description=(
@@ -107,17 +105,11 @@ async def help(ctx):
         ),
         color=discord.Color.blue()
     )
-    try:
-        await ctx.author.send(embed=embed)
-        await ctx.send(f"{ctx.author.mention}, je t’ai envoyé l’aide en message privé.", delete_after=10)
-    except Exception as e:
-        print("Erreur envoi aide :", e)
-    finally:
-        try:
-            await ctx.message.delete()
-        except discord.errors.Forbidden:
-            pass
 
+    try:
+        await ctx.send(embed=embed)
+    except Exception as e:
+        print(f"Erreur envoi aide : {e}")
 
 # ---------------------------- Boucle de vérification ----------------------------
 @tasks.loop(seconds=POLL_SECONDS)
